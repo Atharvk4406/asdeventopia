@@ -29,10 +29,27 @@ pipeline {
 
         stage('3. Automated Unit Testing') {
             steps {
-                echo '=== Stage 3: Inspecting app.py imports ==='
+                echo '=== Stage 3: Testing app.py Dependencies Individually ==='
 
-                bat 'findstr /n /r "^[ ]*import " app.py'
-                bat 'findstr /n /r "^[ ]*from .* import " app.py'
+                bat 'python -c "import mysql.connector; print(100)"'
+                bat 'python -c "from werkzeug.security import generate_password_hash, check_password_hash; print(200)"'
+                bat 'python -c "from werkzeug.utils import secure_filename; print(300)"'
+                bat 'python -c "import os; print(400)"'
+                bat 'python -c "from email.mime.text import MIMEText; print(500)"'
+                bat 'python -c "import smtplib; print(600)"'
+                bat 'python -c "import uuid; print(700)"'
+                bat 'python -c "import qrcode; print(800)"'
+                bat 'python -c "from io import BytesIO; print(900)"'
+                bat 'python -c "import base64; print(1000)"'
+                bat 'python -c "import pandas; print(1100)"'
+                bat 'python -c "import threading; print(1200)"'
+                bat 'python -c "import time; print(1300)"'
+                bat 'python -c "from datetime import datetime, timedelta; print(1400)"'
+                bat 'python -c "import re; print(1500)"'
+                bat 'python -c "import socket; print(1600)"'
+                bat 'python -c "from dotenv import load_dotenv; print(1700)"'
+
+                echo '=== All app.py dependency imports completed ==='
             }
         }
 
