@@ -29,12 +29,9 @@ pipeline {
 
         stage('3. Automated Unit Testing') {
             steps {
-                echo '=== Stage 3: Test File Import Diagnostic ==='
+                echo '=== Stage 3: Detailed app.py Execution Diagnostic ==='
 
-                bat 'python -c "import tests.test_app; print(100)"'
-                bat 'python -c "import pytest; print(200)"'
-
-                echo '=== Test file and PyTest imports completed ==='
+                bat 'python -c "import ast; source=open(\"app.py\", encoding=\"utf-8\").read(); tree=ast.parse(source); ns={\"__name__\":\"debug_app\"}; print(\"TOTAL TOP LEVEL STATEMENTS:\", len(tree.body)); [ (print(\"EXECUTING app.py LINE:\", n.lineno, \"TYPE:\", type(n).__name__), exec(compile(ast.Module(body=[n], type_ignores=[]), \"app.py\", \"exec\"), ns, ns) ) for n in tree.body ]; print(\"ALL app.py TOP LEVEL STATEMENTS COMPLETED\")"'
             }
         }
 
