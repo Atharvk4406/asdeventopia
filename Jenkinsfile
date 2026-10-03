@@ -12,6 +12,7 @@ pipeline {
         stage('1. Checkout SCM') {
             steps {
                 echo '=== Stage 1: Fetching Latest Code from GitHub ==='
+
                 checkout scm
             }
         }
@@ -28,13 +29,15 @@ pipeline {
 
         stage('3. Automated Unit Testing') {
             steps {
-                echo '=== Stage 3: ml_chatbot Import Diagnostic ==='
+                echo '=== Stage 3: Running PyTest inside Docker ==='
 
-                bat 'python -c "import ml_chatbot; print(100, flush=True)"'
+                echo '--- Building test image ---'
 
-                bat 'python -c "from ml_chatbot import predict_intent; print(200, flush=True)"'
+                bat "docker build -t ${IMAGE_NAME}:test ."
 
-                bat 'python -c "import app; print(300, flush=True)"'
+                echo '--- Running PyTest inside Linux Docker container ---'
+
+                bat "docker run --rm ${IMAGE_NAME}:test python -m pytest tests/ --doctest-modules -v"
             }
         }
 
@@ -52,6 +55,7 @@ pipeline {
 
                 bat "docker stop ${CONTAINER_NAME} || exit 0"
                 bat "docker rm ${CONTAINER_NAME} || exit 0"
+
                 bat "docker run -d -p ${APP_PORT}:5000 --name ${CONTAINER_NAME} ${IMAGE_NAME}:latest"
 
                 echo "Application successfully deployed on port ${APP_PORT}"
