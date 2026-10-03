@@ -90,3 +90,6 @@ pytest
 - `GET /health`: Health check endpoint for container / Jenkins liveness checks.
 - `GET /api/info`: System metadata and DevOps stack info.
 - `POST /chatbot`: Chatbot query endpoint.
+## DevOps Workflow
+
+Eventopia follows an Agile and DevOps workflow using GitHub, PyTest, Docker, Jenkins, Terraform, and Ansible.
