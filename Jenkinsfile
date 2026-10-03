@@ -27,18 +27,15 @@ pipeline {
 
         stage('3. Automated Unit Testing') {
             steps {
-                echo '=== Stage 3: Jenkins Python Environment Diagnostic ==='
-                bat 'python -c "import sys; print(sys.executable)"'
-                bat 'python -c "import site; print(site.getusersitepackages())"'
+                echo '=== Stage 3: Running Pytest Suite ==='
+                bat 'python -m pytest tests/ --doctest-modules -v'
             }
         }
 
-        stage('4. Docker Environment Diagnostic') {
+        stage('4. Docker Container Build') {
             steps {
-                echo '=== Stage 4: Docker Environment Diagnostic ==='
-                bat 'echo %PATH%'
-                bat 'where docker'
-                bat 'docker --version'
+                echo '=== Stage 4: Building Docker Image ==='
+                bat "docker build -t ${IMAGE_NAME}:latest ."
             }
         }
 
