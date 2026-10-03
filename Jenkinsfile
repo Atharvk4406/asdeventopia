@@ -34,13 +34,15 @@ pipeline {
         }
 
         stage('4. Docker Environment Diagnostic') {
-    steps {
-        echo '=== Stage 4: Docker Environment Diagnostic ==='
-        bat 'echo %PATH%'
-        bat 'where docker'
-        bat 'docker --version'
-    }
-}        stage('5. Docker Container Deployment') {
+            steps {
+                echo '=== Stage 4: Docker Environment Diagnostic ==='
+                bat 'echo %PATH%'
+                bat 'where docker'
+                bat 'docker --version'
+            }
+        }
+
+        stage('5. Docker Container Deployment') {
             steps {
                 echo '=== Stage 5: Deploying Docker Container ==='
                 bat "docker stop ${CONTAINER_NAME} || exit 0"
