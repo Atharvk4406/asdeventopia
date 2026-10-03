@@ -19,6 +19,7 @@ pipeline {
         stage('2. Environment & Dependencies') {
             steps {
                 echo '=== Stage 2: Installing Dependencies ==='
+
                 bat 'python --version'
                 bat 'python -m pip install --upgrade pip'
                 bat 'python -m pip install -r requirements.txt'
@@ -27,29 +28,20 @@ pipeline {
 
         stage('3. Automated Unit Testing') {
             steps {
-                echo '=== Stage 3: Detailed app.py Execution Diagnostic ==='
+                echo '=== Stage 3: ml_chatbot Import Diagnostic ==='
 
-                bat '''
-(
-echo import ast
-echo source = open^('app.py', encoding='utf-8'^).read^(^)
-echo tree = ast.parse^(source^)
-echo ns = {'__name__': 'debug_app'}
-echo print^('TOTAL TOP LEVEL STATEMENTS:', len^(tree.body^), flush=True^)
-echo for n in tree.body:
-echo     print^('EXECUTING app.py LINE:', n.lineno, 'TYPE:', type^(n^).__name__, flush=True^)
-echo     exec^(compile^(ast.Module^(body=[n], type_ignores=[]^), 'app.py', 'exec'^), ns, ns^)
-echo print^('ALL app.py TOP LEVEL STATEMENTS COMPLETED', flush=True^)
-) > diagnose_app.py
-'''
+                bat 'python -c "import ml_chatbot; print(100, flush=True)"'
 
-                bat 'python -u diagnose_app.py'
+                bat 'python -c "from ml_chatbot import predict_intent; print(200, flush=True)"'
+
+                bat 'python -c "import app; print(300, flush=True)"'
             }
         }
 
         stage('4. Docker Container Build') {
             steps {
                 echo '=== Stage 4: Building Docker Image ==='
+
                 bat "docker build -t ${IMAGE_NAME}:latest ."
             }
         }
@@ -57,9 +49,11 @@ echo print^('ALL app.py TOP LEVEL STATEMENTS COMPLETED', flush=True^)
         stage('5. Docker Container Deployment') {
             steps {
                 echo '=== Stage 5: Deploying Docker Container ==='
+
                 bat "docker stop ${CONTAINER_NAME} || exit 0"
                 bat "docker rm ${CONTAINER_NAME} || exit 0"
                 bat "docker run -d -p ${APP_PORT}:5000 --name ${CONTAINER_NAME} ${IMAGE_NAME}:latest"
+
                 echo "Application successfully deployed on port ${APP_PORT}"
             }
         }
