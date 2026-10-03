@@ -1,0 +1,266 @@
+{% extends "base.html" %}
+{% block content %}
+<section style="max-width: 680px; margin: 60px auto; padding: 20px;">
+
+  <h2 style="text-align:center; font-size:1.8rem; font-weight:800; margin-bottom:6px;">
+    <i class="fa-solid fa-qrcode" style="color:#6366f1;"></i> Ticket Verification
+  </h2>
+  <p style="text-align:center; color:var(--text-muted); margin-bottom:30px; font-size:0.95rem;">
+    Enter the ticket ID from the student's QR code or email to verify entry.
+  </p>
+
+  <!-- SCAN FORM -->
+  <div style="background:var(--glass-bg); border:1px solid var(--glass-border); border-radius:20px; padding:30px; margin-bottom:24px;">
+    <form method="POST" action="/admin/scan_ticket" id="scanForm">
+      <div style="display:flex; gap:12px; flex-wrap:wrap;">
+        <input
+          type="text" name="ticket_id" id="ticketInput"
+          placeholder="Enter Ticket ID (e.g. 9CB640C99F30)"
+          style="flex:1; min-width:220px; padding:14px 18px; border-radius:12px; border:2px solid rgba(99,102,241,0.4); background:rgba(0,0,0,0.25); color:var(--text-main); font-size:1rem; font-family:monospace; letter-spacing:2px; text-transform:uppercase; outline:none; transition:border 0.2s;"
+          onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='rgba(99,102,241,0.4)'"
+          required autofocus>
+        <button type="submit"
+          style="padding:14px 28px; background:linear-gradient(135deg,#6366f1,#8b5cf6); color:#fff; border:none; border-radius:12px; font-size:1rem; font-weight:700; cursor:pointer; transition:opacity 0.2s; white-space:nowrap;"
+          onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
+          <i class="fa-solid fa-magnifying-glass"></i> Verify
+        </button>
+      </div>
+    </form>
+
+    <div style="margin-top: 25px; text-align: center;">
+      <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 15px;">
+          <hr style="flex: 1; border: 0; border-top: 1px solid rgba(255,255,255,0.1);">
+          <span style="color: rgba(255,255,255,0.4); font-size: 0.9rem; font-weight: 600;">OR</span>
+          <hr style="flex: 1; border: 0; border-top: 1px solid rgba(255,255,255,0.1);">
+      </div>
+      <button type="button" id="startScanBtn" onclick="startScanner()" style="padding:12px 24px; background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.5); color:#c7d2fe; border-radius:10px; font-size:1rem; font-weight:600; cursor:pointer; transition:all 0.2s;">
+          <i class="fa-solid fa-camera"></i> Scan QR with Device Camera
+      </button>
+      <div id="reader" style="width: 100%; max-width: 400px; margin: 20px auto 0; display: none; border-radius:12px; overflow:hidden; border: 2px solid rgba(99,102,241,0.4); background: #fff;"></div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script>
+    let html5QrcodeScanner = null;
+
+    function startScanner() {
+      const readerDiv = document.getElementById('reader');
+      const btn = document.getElementById('startScanBtn');
+      
+      if (readerDiv.style.display === 'block') {
+         if(html5QrcodeScanner) {
+             html5QrcodeScanner.clear();
+         }
+         readerDiv.style.display = 'none';
+         btn.innerHTML = '<i class="fa-solid fa-camera"></i> Scan QR with Device Camera';
+         btn.style.background = 'rgba(99,102,241,0.15)';
+         return;
+      }
+      
+      readerDiv.style.display = 'block';
+      btn.innerHTML = '<i class="fa-solid fa-stop"></i> Stop Camera';
+      btn.style.background = 'rgba(239,68,68,0.2)';
+      
+      html5QrcodeScanner = new Html5QrcodeScanner(
+        "reader",
+        { fps: 10, qrbox: {width: 250, height: 250} },
+        /* verbose= */ false);
+        
+      html5QrcodeScanner.render(onScanSuccess, onScanFailure);
+    }
+
+    function onScanSuccess(decodedText, decodedResult) {
+      let ticketId = decodedText;
+      
+      // If it's a URL, extract the ticket ID from the end
+      if (ticketId.includes('/verify/')) {
+          ticketId = ticketId.split('/verify/')[1].split('?')[0].split('/')[0];
+      }
+      
+      ticketId = ticketId.trim().toUpperCase();
+      document.getElementById('ticketInput').value = ticketId;
+      
+      if(html5QrcodeScanner) {
+         html5QrcodeScanner.clear();
+      }
+      document.getElementById('reader').style.display = 'none';
+      document.getElementById('startScanBtn').innerHTML = '<i class="fa-solid fa-camera"></i> Scan QR with Device Camera';
+      
+      // Auto submit
+      document.getElementById('scanForm').submit();
+    }
+
+    function onScanFailure(error) {
+      // ignore
+    }
+  </script>
+
+  <!-- RESULT MESSAGE -->
+  {% if message %}
+  <div style="
+      margin-bottom: 20px;
+      padding: 16px 22px;
+      border-radius: 14px;
+      font-weight: 700;
+      font-size: 1rem;
+      display: flex; align-items: center; gap: 12px;
+      {% if success %}
+        background: rgba(16,185,129,0.15); border: 1px solid #10b981; color: #10b981;
+      {% elif 'already' in message %}
+        background: rgba(250,204,21,0.15); border: 1px solid #facc15; color: #facc15;
+      {% else %}
+        background: rgba(239,68,68,0.15); border: 1px solid #ef4444; color: #ef4444;
+      {% endif %}
+  ">
+    {% if success %}<i class="fa-solid fa-circle-check fa-lg"></i>
+    {% elif 'already' in message %}<i class="fa-solid fa-triangle-exclamation fa-lg"></i>
+    {% else %}<i class="fa-solid fa-circle-xmark fa-lg"></i>{% endif %}
+    {{ message }}
+  </div>
+  {% endif %}
+
+  <!-- REGISTRANT DETAILS CARD -->
+  {% if reg_info %}
+  <div style="background:linear-gradient(145deg,#1e1b4b,#1e293b); border:1px solid rgba(139,92,246,0.35); border-radius:20px; overflow:hidden; box-shadow:0 20px 60px rgba(0,0,0,0.4);">
+
+    <!-- Card Header -->
+    <div style="background:linear-gradient(135deg,#6366f1,#8b5cf6); padding:20px 28px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+      <div>
+        <div style="font-size:0.75rem; color:rgba(255,255,255,0.7); text-transform:uppercase; letter-spacing:2px; font-weight:700;">Registration Record</div>
+        <div style="font-size:1.4rem; font-weight:800; color:#fff; margin-top:2px;">{{ reg_info.name }}</div>
+      </div>
+      <div style="
+        padding: 6px 18px; border-radius: 50px; font-size: 0.85rem; font-weight: 700;
+        {% if reg_info.status == 'Attended' %}
+          background: rgba(16,185,129,0.25); color:#10b981; border: 1px solid #10b981;
+        {% else %}
+          background: rgba(99,102,241,0.25); color:#a78bfa; border: 1px solid #818cf8;
+        {% endif %}
+      ">
+        {% if reg_info.status == 'Attended' %}✅ Attended{% else %}🎟️ Registered{% endif %}
+      </div>
+    </div>
+
+    <!-- Details grid -->
+    <div style="padding:24px 28px; display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+
+      <div style="background:rgba(255,255,255,0.04); border-radius:12px; padding:12px 16px; border:1px solid rgba(255,255,255,0.07);">
+        <div style="font-size:0.7rem; color:#7c6fcd; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">🎉 Event</div>
+        <div style="color:#e2e8f0; font-weight:700;">{{ reg_info.event_name }}</div>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.04); border-radius:12px; padding:12px 16px; border:1px solid rgba(255,255,255,0.07);">
+        <div style="font-size:0.7rem; color:#7c6fcd; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">🏷️ Category</div>
+        <div style="color:#e2e8f0; font-weight:600;">{{ reg_info.category_name }}</div>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.04); border-radius:12px; padding:12px 16px; border:1px solid rgba(255,255,255,0.07);">
+        <div style="font-size:0.7rem; color:#7c6fcd; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">📅 Date</div>
+        <div style="color:#e2e8f0; font-weight:600;">{{ reg_info.event_date }}</div>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.04); border-radius:12px; padding:12px 16px; border:1px solid rgba(255,255,255,0.07);">
+        <div style="font-size:0.7rem; color:#7c6fcd; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">⏰ Time</div>
+        <div style="color:#e2e8f0; font-weight:600;">{{ reg_info.event_time or 'TBA' }}</div>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.04); border-radius:12px; padding:12px 16px; border:1px solid rgba(255,255,255,0.07); grid-column: 1 / -1;">
+        <div style="font-size:0.7rem; color:#7c6fcd; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">📍 Venue</div>
+        <div style="color:#e2e8f0; font-weight:600;">{{ reg_info.venue }}</div>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.04); border-radius:12px; padding:12px 16px; border:1px solid rgba(255,255,255,0.07);">
+        <div style="font-size:0.7rem; color:#7c6fcd; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">📧 Email</div>
+        <div style="color:#e2e8f0; font-size:0.88rem; word-break:break-all;">{{ reg_info.email }}</div>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.04); border-radius:12px; padding:12px 16px; border:1px solid rgba(255,255,255,0.07);">
+        <div style="font-size:0.7rem; color:#7c6fcd; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">📱 Phone</div>
+        <div style="color:#e2e8f0; font-weight:600;">{{ reg_info.phone or '—' }}</div>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.04); border-radius:12px; padding:12px 16px; border:1px solid rgba(255,255,255,0.07);">
+        <div style="font-size:0.7rem; color:#7c6fcd; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">💳 Payment</div>
+        <div style="color:{% if reg_info.payment_status == 'Completed' %}#10b981{% else %}#facc15{% endif %}; font-weight:700;">{{ reg_info.payment_status }}</div>
+      </div>
+
+      <div style="background:rgba(255,255,255,0.04); border-radius:12px; padding:12px 16px; border:1px solid rgba(255,255,255,0.07);">
+        <div style="font-size:0.7rem; color:#7c6fcd; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">🎫 Ticket ID</div>
+        <div style="color:#a78bfa; font-family:monospace; font-size:0.85rem; letter-spacing:2px; font-weight:700;">{{ reg_info.ticket_id }}</div>
+      </div>
+
+      {% if reg_info.attendance_time %}
+      <div style="background:rgba(16,185,129,0.08); border-radius:12px; padding:12px 16px; border:1px solid rgba(16,185,129,0.25); grid-column: 1 / -1;">
+        <div style="font-size:0.7rem; color:#10b981; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:5px;">✅ Marked Present At</div>
+        <div style="color:#6ee7b7; font-weight:700;">{{ reg_info.attendance_time.strftime('%d %b %Y, %I:%M %p') if reg_info.attendance_time else '—' }}</div>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <div style="padding: 0 28px 24px;">
+      <a href="/ticket/{{ reg_info.ticket_id }}" target="_blank"
+         style="display:block; text-align:center; padding:12px; border-radius:12px; background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.4); color:#818cf8; font-weight:700; text-decoration:none; transition:background 0.2s; margin-bottom:12px;"
+         onmouseover="this.style.background='rgba(99,102,241,0.28)'" onmouseout="this.style.background='rgba(99,102,241,0.15)'">
+        <i class="fa-solid fa-arrow-up-right-from-square"></i> Open Full Ticket Page
+      </a>
+
+      {% if reg_info.status != 'Attended' %}
+      <button id="markPresentBtn" onclick="markPresent('{{ reg_info.ticket_id }}')"
+         style="width:100%; display:block; text-align:center; padding:16px; border-radius:12px; background:linear-gradient(135deg,#10b981,#059669); color:#fff; font-weight:800; border:none; cursor:pointer; box-shadow:0 10px 20px rgba(16,185,129,0.3); transition:transform 0.2s, box-shadow 0.2s;"
+         onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 15px 30px rgba(16,185,129,0.4)'"
+         onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 10px 20px rgba(16,185,129,0.3)'">
+        <i class="fa-solid fa-user-check"></i> MARK AS PRESENT (Entry Allowed)
+      </button>
+      
+      <script>
+        function markPresent(tid) {
+          const btn = document.getElementById('markPresentBtn');
+          btn.disabled = true;
+          btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Marking...';
+          
+          fetch('/admin/mark_attendance/' + tid, { method: 'POST' })
+            .then(res => res.json())
+            .then(data => {
+              if(data.success) {
+                btn.style.background = 'linear-gradient(135deg,#064e3b,#065f46)';
+                btn.style.color = '#10b981';
+                btn.style.border = '1px solid #10b981';
+                btn.style.boxShadow = 'none';
+                btn.innerHTML = '✅ SUCCESSFULLY MARKED PRESENT' + (data.timestamp ? ' — ' + data.timestamp : '');
+                setTimeout(() => location.reload(), 1500);
+              } else if(data.already) {
+                btn.style.background = 'rgba(250,204,21,0.1)';
+                btn.style.color = '#facc15';
+                btn.style.border = '1px solid #facc15';
+                btn.style.boxShadow = 'none';
+                btn.innerHTML = '⚠️ ' + (data.error || 'Already Marked Present');
+              } else {
+                alert('Error: ' + (data.error || 'Unknown error'));
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fa-solid fa-user-check"></i> MARK AS PRESENT (Entry Allowed)';
+              }
+            })
+            .catch(err => {
+              console.error(err);
+              alert('Network error. Please try again.');
+              btn.disabled = false;
+              btn.innerHTML = '<i class="fa-solid fa-user-check"></i> MARK AS PRESENT (Entry Allowed)';
+            });
+        }
+      </script>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div style="text-align:center; margin-top:28px;">
+    <a href="/admin" style="color:rgba(255,255,255,0.4); text-decoration:none; font-size:0.9rem; font-weight:600; transition:color 0.2s;"
+       onmouseover="this.style.color='#818cf8'" onmouseout="this.style.color='rgba(255,255,255,0.4)'">
+      ← Back to Admin Dashboard
+    </a>
+  </div>
+
+</section>
+{% endblock %}
