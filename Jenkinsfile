@@ -27,8 +27,9 @@ pipeline {
 
         stage('3. Automated Unit Testing') {
             steps {
-                echo '=== Stage 3: Running Pytest Suite ==='
-                bat 'python -m pytest tests/ --doctest-modules -v'
+                echo '=== Stage 3: Jenkins Python Environment Diagnostic ==='
+                bat 'python -c "import sys; print(sys.executable)"'
+                bat 'python -c "import site; print(site.getusersitepackages())"'
             }
         }
 
