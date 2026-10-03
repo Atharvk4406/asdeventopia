@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+*.db
+*.sqlite
+*.sqlite3
+.pytest_cache/
+.venv/
+venv/
+scratch/
+static/uploads/
+static/tickets/

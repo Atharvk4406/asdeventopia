@@ -1,0 +1,70 @@
+---
+- name: ASDD DevOps Server Configuration & Deployment Playbook
+  hosts: webservers
+  become: yes
+  vars:
+    docker_image: "ai-event-management-app"
+    container_name: "ai-event-management-container"
+    app_port: 5000
+
+  tasks:
+    - name: 1. Update APT Repository Cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: 2. Install Required System Dependencies
+      apt:
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - docker.io
+          - git
+        state: present
+
+    - name: 3. Ensure Docker Service is Started & Enabled
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: 4. Add Ubuntu User to Docker Group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
+
+    - name: 5. Clone/Pull ASDD Application Repository from GitHub
+      git:
+        repo: 'https://github.com/Atharvk4406/asdeventopia.git'
+        dest: /home/ubuntu/asdd-app
+        version: main
+        force: yes
+
+    - name: 6. Build Docker Container Image
+      command: docker build -t {{ docker_image }}:latest /home/ubuntu/asdd-app
+
+    - name: 7. Stop Existing Docker Container if Running
+      command: docker stop {{ container_name }}
+      ignore_errors: yes
+
+    - name: 8. Remove Existing Docker Container
+      command: docker rm {{ container_name }}
+      ignore_errors: yes
+
+    - name: 9. Launch New Application Container
+      command: docker run -d -p {{ app_port }}:5000 --name {{ container_name }} --restart always {{ docker_image }}:latest
+
+    - name: 10. Verify Application Health Endpoint
+      uri:
+        url: "http://localhost:{{ app_port }}/health"
+        status_code: 200
+      register: health_check
+      retries: 5
+      delay: 3
+
+    - name: Output Health Check Result
+      debug:
+        msg: "Application active! Health check response: {{ health_check.json }}"

@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eventopia — Ticket Verification</title>
+  <meta name="description" content="Verify event ticket and mark attendance for Eventopia events.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --purple:   #6366f1;
+      --violet:   #8b5cf6;
+      --green:    #10b981;
+      --amber:    #f59e0b;
+      --red:      #ef4444;
+      --bg:       #0d0d1a;
+      --card:     #13132b;
+      --glass:    rgba(255,255,255,0.04);
+      --border:   rgba(139,92,246,0.25);
+      --muted:    rgba(255,255,255,0.45);
+      --text:     #e2e8f0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      background: radial-gradient(ellipse at top left, #1a0533 0%, #0d0d1a 50%, #001a2c 100%);
+      color: var(--text);
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 24px 16px 48px;
+    }
+
+    .wrap { width: 100%; max-width: 480px; }
+
+    /* ── BRAND HEADER ── */
+    .brand-bar {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      margin-bottom: 20px;
+    }
+    .brand-bar .logo {
+      font-size: 1.35rem; font-weight: 900; letter-spacing: 2px;
+      background: linear-gradient(135deg, #a78bfa, #60a5fa);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .brand-bar .badge {
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 1.5px;
+      background: rgba(99,102,241,0.2); border: 1px solid rgba(99,102,241,0.5);
+      color: #818cf8; border-radius: 6px; padding: 2px 8px;
+    }
+
+    /* ── INVALID STATE ── */
+    .invalid-card {
+      background: rgba(239,68,68,0.07);
+      border: 1px solid rgba(239,68,68,0.35);
+      border-radius: 20px;
+      padding: 40px 30px;
+      text-align: center;
+    }
+    .invalid-card .icon { font-size: 4rem; margin-bottom: 16px; }
+    .invalid-card h2 { font-size: 1.4rem; font-weight: 800; color: #f87171; margin-bottom: 8px; }
+    .invalid-card p  { color: var(--muted); font-size: 0.9rem; }
+
+    /* ── MAIN TICKET CARD ── */
+    .ticket-card {
+      background: linear-gradient(160deg, #1a1040, #0f1f35);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+      animation: slideUp 0.45s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    @keyframes slideUp {
+      from { opacity:0; transform:translateY(28px); }
+      to   { opacity:1; transform:translateY(0); }
+    }
+
+    /* Header strip */
+    .t-header {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 60%, #9d4edd 100%);
+      padding: 28px 24px 22px;
+      text-align: center;
+      position: relative;
+    }
+    .t-header::after {
+      content: '';
+      position: absolute;
+      bottom: -1px; left: 0; right: 0; height: 26px;
+      background: linear-gradient(160deg, #1a1040, #0f1f35);
+      clip-path: ellipse(55% 100% at 50% 100%);
+    }
+    .t-header .ev-icon { font-size: 2.5rem; }
+    .t-header .ev-name {
+      font-size: 1.25rem; font-weight: 900; color: #fff;
+      margin-top: 8px; letter-spacing: 1px;
+    }
+    .t-header .cat-name {
+      font-size: 0.8rem; color: rgba(255,255,255,0.7);
+      margin-top: 2px; font-weight: 500;
+    }
+
+    /* Status pill */
+    .status-row { text-align: center; padding: 20px 24px 6px; }
+    .pill {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 22px; border-radius: 50px; font-size: 0.88rem; font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .pill-registered { background: rgba(99,102,241,0.15); color: #818cf8; border: 1px solid rgba(99,102,241,0.45); }
+    .pill-attended   { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid rgba(16,185,129,0.5); }
+
+    /* Ticket ID block */
+    .tid-block {
+      text-align: center; padding: 10px 24px 14px;
+    }
+    .tid-inner {
+      display: inline-block;
+      background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3);
+      padding: 8px 20px; border-radius: 12px;
+    }
+    .tid-label { font-size: 0.6rem; color: #7c6fcd; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 3px; }
+    .tid-value { font-family: 'Space Mono', monospace; font-size: 0.95rem; color: #c4b5fd; letter-spacing: 3px; font-weight: 700; }
+
+    /* Zigzag divider */
+    .zz { display: flex; align-items: center; padding: 0 18px; margin: 4px 0 14px; }
+    .zz-line  { flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
+    .zz-dot   { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(ellipse at top left, #1a0533, #0d0d1a); border: 1px solid rgba(255,255,255,0.08); flex-shrink: 0; }
+
+    /* Info grid */
+    .info-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 12px; padding: 0 22px 20px;
+    }
+    .info-item {
+      background: var(--glass); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px; padding: 11px 14px;
+    }
+    .info-item.full { grid-column: 1 / -1; }
+    .il { font-size: 0.65rem; color: #7c6fcd; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .iv { font-size: 0.92rem; color: var(--text); font-weight: 600; word-break: break-word; }
+
+    /* Attendance timestamp chip */
+    .att-chip {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3);
+      border-radius: 10px; padding: 10px 14px; margin: 0 22px 20px;
+    }
+    .att-chip i { color: #10b981; font-size: 1.1rem; }
+    .att-chip .att-label { font-size: 0.65rem; color: #10b981; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; }
+    .att-chip .att-time  { font-size: 0.88rem; color: #6ee7b7; font-weight: 700; }
+
+    /* Card footer */
+    .t-footer {
+      border-top: 1px dashed rgba(255,255,255,0.08);
+      padding: 14px 22px;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 6px;
+    }
+    .t-footer .brand { font-size: 0.75rem; color: var(--purple); font-weight: 700; letter-spacing: 1px; }
+    .t-footer .note  { font-size: 0.7rem; color: var(--muted); }
+
+    /* ── ALREADY ATTENDED ── */
+    .attended-banner {
+      margin-top: 14px;
+      background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.3);
+      border-radius: 18px; padding: 28px 22px; text-align: center;
+      animation: slideUp 0.45s 0.1s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    .attended-banner .big  { font-size: 3rem; margin-bottom: 8px; }
+    .attended-banner h3    { font-size: 1.1rem; font-weight: 800; color: #10b981; text-transform: uppercase; letter-spacing: 1px; }
+    .attended-banner small { font-size: 0.8rem; color: var(--muted); display: block; margin-top: 4px; }
+
+    /* ── MARK PRESENT PANEL ── */
+    .mark-panel {
+      margin-top: 14px;
+      background: linear-gradient(160deg, #1a1040, #0f1f35);
+      border: 1px solid rgba(139,92,246,0.3); border-radius: 20px;
+      padding: 24px 22px;
+      animation: slideUp 0.45s 0.15s cubic-bezier(0.22,1,0.36,1) both;
+    }
+    .mark-panel h3 {
+      font-size: 1rem; font-weight: 800; color: #fff;
+      margin-bottom: 4px; text-align: center;
+    }
+    .mark-panel .sub {
+      font-size: 0.78rem; color: var(--muted); text-align: center; margin-bottom: 18px;
+    }
+
+    /* PIN input */
+    .pin-row { display: flex; gap: 10px; margin-bottom: 10px; }
+    .pin-row input {
+      flex: 1; padding: 14px 16px; border-radius: 12px;
+      border: 1.5px solid rgba(139,92,246,0.4);
+      background: rgba(0,0,0,0.3); color: #fff; font-size: 1rem;
+      text-align: center; letter-spacing: 4px; outline: none;
+      transition: border 0.2s;
+      font-family: 'Space Mono', monospace;
+    }
+    .pin-row input:focus { border-color: var(--purple); }
+
+    /* Mark button */
+    .mark-btn {
+      width: 100%; padding: 16px; border-radius: 14px;
+      background: linear-gradient(135deg, #10b981, #059669);
+      color: #fff; border: none; font-weight: 800; font-size: 1rem;
+      cursor: pointer; box-shadow: 0 10px 25px rgba(16,185,129,0.25);
+      transition: transform 0.18s, box-shadow 0.18s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .mark-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 35px rgba(16,185,129,0.35);
+    }
+    .mark-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+    /* Admin fast-track button (no PIN needed) */
+    .admin-btn {
+      width: 100%; padding: 16px; border-radius: 14px;
+      background: linear-gradient(135deg, var(--purple), var(--violet));
+      color: #fff; border: none; font-weight: 800; font-size: 1rem;
+      cursor: pointer; box-shadow: 0 10px 25px rgba(99,102,241,0.25);
+      transition: transform 0.18s, box-shadow 0.18s;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .admin-btn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 16px 35px rgba(99,102,241,0.35);
+    }
+    .admin-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+
+    /* Feedback message */
+    .msg-box {
+      border-radius: 12px; padding: 12px 16px;
+      font-size: 0.88rem; font-weight: 700; text-align: center;
+      margin-bottom: 14px; display: none;
+    }
+    .msg-box.ok    { background: rgba(16,185,129,0.15); color: #10b981; border: 1px solid #10b981; }
+    .msg-box.warn  { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid #f59e0b; }
+    .msg-box.err   { background: rgba(239,68,68,0.12);  color: #f87171; border: 1px solid #ef4444; }
+
+    .security-note {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      font-size: 0.72rem; color: var(--muted); margin-top: 12px;
+    }
+
+    /* Back link */
+    .back-link {
+      display: block; text-align: center; margin-top: 20px;
+      color: var(--muted); font-size: 0.82rem; text-decoration: none;
+      transition: color 0.2s;
+    }
+    .back-link:hover { color: #a78bfa; }
+
+    /* Watermark */
+    .watermark {
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%,-50%) rotate(-32deg);
+      font-size: 4.5rem; font-weight: 900;
+      color: rgba(16,185,129,0.08);
+      pointer-events: none; z-index: 0;
+      white-space: nowrap; letter-spacing: 6px;
+    }
+
+    @media (max-width: 400px) {
+      .info-grid { grid-template-columns: 1fr; }
+      .info-item.full { grid-column: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+
+    <!-- Brand -->
+    <div class="brand-bar">
+      <span class="logo">⚡ EVENTOPIA</span>
+      <span class="badge">TICKET VERIFICATION</span>
+    </div>
+
+    {% if error or not ticket %}
+      <!-- INVALID TICKET -->
+      <div class="invalid-card">
+        <div class="icon">🚫</div>
+        <h2>Invalid Ticket</h2>
+        <p>{{ error or "This ticket ID is invalid or has expired." }}</p>
+        <a href="/home" style="display:inline-block; margin-top:20px; color:#818cf8; text-decoration:none; font-weight:700; font-size:0.9rem;">← Go to Home</a>
+      </div>
+
+    {% else %}
+      <!-- TICKET CARD -->
+      <div class="ticket-card" style="position:relative; overflow:hidden;">
+        {% if ticket.status == 'Attended' %}
+        <div class="watermark">ATTENDED</div>
+        {% endif %}
+
+        <!-- Header -->
+        <div class="t-header">
+          <div class="ev-icon">🎫</div>
+          <div class="ev-name">{{ ticket.event_name }}</div>
+          <div class="cat-name">{{ ticket.category_name }}</div>
+        </div>
+
+        <!-- Status pill -->
+        <div class="status-row">
+          {% if ticket.status == 'Attended' %}
+          <span class="pill pill-attended">
+            <i class="fa-solid fa-circle-check"></i> Attended — Entry Verified
+          </span>
+          {% else %}
+          <span class="pill pill-registered">
+            <i class="fa-solid fa-ticket"></i> Registration Confirmed
+          </span>
+          {% endif %}
+        </div>
+
+        <!-- Ticket ID -->
+        <div class="tid-block">
+          <div class="tid-inner">
+            <div class="tid-label">Ticket ID</div>
+            <div class="tid-value">{{ ticket.ticket_id }}</div>
+          </div>
+        </div>
+
+        <!-- Zigzag -->
+        <div class="zz">
+          <div class="zz-dot"></div>
+          <div class="zz-line"></div>
+          <div class="zz-dot"></div>
+        </div>
+
+        <!-- Info grid -->
+        <div class="info-grid">
+          <div class="info-item full">
+            <div class="il">👤 Name</div>
+            <div class="iv" style="font-size:1.05rem; font-weight:800; color:#c4b5fd;">{{ ticket.name }}</div>
+          </div>
+          <div class="info-item">
+            <div class="il">📅 Date</div>
+            <div class="iv">{{ ticket.event_date }}</div>
+          </div>
+          <div class="info-item">
+            <div class="il">⏰ Time</div>
+            <div class="iv">{{ ticket.event_time or 'TBA' }}</div>
+          </div>
+          <div class="info-item full">
+            <div class="il">📍 Venue</div>
+            <div class="iv">{{ ticket.venue }}</div>
+          </div>
+          {% if ticket.team_name %}
+          <div class="info-item full">
+            <div class="il">👥 Team</div>
+            <div class="iv">{{ ticket.team_name }}</div>
+          </div>
+          {% endif %}
+          <div class="info-item">
+            <div class="il">💳 Payment</div>
+            <div class="iv" style="color: {% if ticket.payment_status == 'Completed' %}#10b981{% else %}#f59e0b{% endif %};">
+              {{ ticket.payment_status }}
+            </div>
+          </div>
+          {% if ticket.branch %}
+          <div class="info-item">
+            <div class="il">🏫 Branch</div>
+            <div class="iv">{{ ticket.branch }}</div>
+          </div>
+          {% endif %}
+          {% if ticket['class'] %}
+          <div class="info-item">
+            <div class="il">📚 Class</div>
+            <div class="iv">{{ ticket['class'] }}</div>
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Attendance timestamp (if marked) -->
+        {% if ticket.attendance_time %}
+        <div class="att-chip">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <div>
+            <div class="att-label">Marked Present At</div>
+            <div class="att-time">{{ ticket.attendance_time.strftime('%d %b %Y, %I:%M %p') }}</div>
+          </div>
+        </div>
+        {% endif %}
+
+        <!-- Footer -->
+        <div class="t-footer">
+          <span class="brand">⚡ EVENTOPIA</span>
+          <span class="note">Show QR to staff at entrance</span>
+        </div>
+      </div>
+
+      <!-- ── ATTENDANCE ACTION AREA ── -->
+      {% if ticket.status == 'Attended' %}
+      <div class="attended-banner">
+        <div class="big">✅</div>
+        <h3>Entry Verified</h3>
+        <small>This registrant has already been marked present.</small>
+        {% if ticket.attendance_time %}
+        <small style="margin-top:6px; color:#6ee7b7;">
+          Time: {{ ticket.attendance_time.strftime('%d %b %Y, %I:%M %p') }}
+        </small>
+        {% endif %}
+      </div>
+
+      {% else %}
+      <div class="mark-panel" id="markPanel">
+        <h3>Mark Attendance</h3>
+        <p class="sub">Confirm the registrant is present at the venue.</p>
+
+        <!-- Feedback box -->
+        <div class="msg-box" id="msgBox"></div>
+
+        {% if is_admin %}
+        <!-- Admin: no PIN needed -->
+        <button class="admin-btn" id="adminMarkBtn" onclick="markPresent(true)">
+          <i class="fa-solid fa-shield-check"></i> Mark as Present (Admin)
+        </button>
+        <div class="security-note" style="margin-top:10px;">
+          <i class="fa-solid fa-lock"></i> You are logged in as Admin — no PIN required.
+        </div>
+        {% else %}
+        <!-- Staff PIN flow -->
+        <div class="pin-row">
+          <input type="password" id="staffPin" placeholder="Enter Staff PIN" autocomplete="off">
+        </div>
+        <button class="mark-btn" id="markBtn" onclick="markPresent(false)">
+          <i class="fa-solid fa-user-check"></i> YES, MARK AS PRESENT
+        </button>
+        <div class="security-note">
+          <i class="fa-solid fa-shield-halved"></i>
+          Only authorized staff with the PIN can mark attendance.
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+    {% endif %}
+
+    <a href="/home" class="back-link">← Back to Home</a>
+  </div>
+
+  <script>
+    const TICKET_ID = "{{ ticket.ticket_id if ticket else '' }}";
+
+    function showMsg(text, type) {
+      const box = document.getElementById('msgBox');
+      if (!box) return;
+      box.textContent = text;
+      box.className = 'msg-box ' + type;
+      box.style.display = 'block';
+    }
+
+    function markPresent(isAdmin) {
+      const btn = isAdmin
+        ? document.getElementById('adminMarkBtn')
+        : document.getElementById('markBtn');
+
+      const pin = isAdmin ? '' : (document.getElementById('staffPin')?.value?.trim() || '');
+
+      if (!isAdmin && !pin) {
+        showMsg('⚠️ Please enter the Staff PIN.', 'warn');
+        return;
+      }
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Marking...';
+
+      fetch('/mark_present', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ticket_id: TICKET_ID, staff_pin: pin })
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success) {
+          showMsg('✅ Entry confirmed! Marked Present at ' + data.timestamp, 'ok');
+          btn.innerHTML = '<i class="fa-solid fa-circle-check"></i> MARKED PRESENT';
+          btn.style.background = 'linear-gradient(135deg,#064e3b,#065f46)';
+          // Reload after 2s to show the updated "Attended" state
+          setTimeout(() => location.reload(), 2000);
+        } else if (data.already) {
+          showMsg('⚠️ ' + data.error, 'warn');
+          btn.disabled = false;
+          btn.innerHTML = isAdmin
+            ? '<i class="fa-solid fa-shield-check"></i> Mark as Present (Admin)'
+            : '<i class="fa-solid fa-user-check"></i> YES, MARK AS PRESENT';
+        } else {
+          showMsg('❌ ' + (data.error || 'Failed to mark attendance.'), 'err');
+          btn.disabled = false;
+          btn.innerHTML = isAdmin
+            ? '<i class="fa-solid fa-shield-check"></i> Mark as Present (Admin)'
+            : '<i class="fa-solid fa-user-check"></i> YES, MARK AS PRESENT';
+        }
+      })
+      .catch(() => {
+        showMsg('❌ Network error — please try again.', 'err');
+        btn.disabled = false;
+        btn.innerHTML = isAdmin
+          ? '<i class="fa-solid fa-shield-check"></i> Mark as Present (Admin)'
+          : '<i class="fa-solid fa-user-check"></i> YES, MARK AS PRESENT';
+      });
+    }
+
+    // Allow Enter key on PIN input
+    document.addEventListener('DOMContentLoaded', () => {
+      const pinEl = document.getElementById('staffPin');
+      if (pinEl) {
+        pinEl.addEventListener('keydown', e => {
+          if (e.key === 'Enter') markPresent(false);
+        });
+      }
+    });
+  </script>
+</body>
+</html>

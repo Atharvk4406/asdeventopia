@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eventopia — Ticket Verification</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 30px 16px;
+    }
+
+    .ticket-wrap {
+      width: 100%;
+      max-width: 500px;
+      animation: fadeUp 0.5s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(30px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* --- TICKET CARD --- */
+    .ticket {
+      background: linear-gradient(145deg, #1e1b4b, #1e293b);
+      border: 1px solid rgba(139,92,246,0.35);
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05);
+    }
+
+    /* Top banner */
+    .ticket-header {
+      background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%);
+      padding: 30px 30px 24px;
+      text-align: center;
+      position: relative;
+    }
+    .ticket-header::after {
+      content: '';
+      position: absolute;
+      bottom: -1px; left: 0; right: 0;
+      height: 30px;
+      background: linear-gradient(145deg, #1e1b4b, #1e293b);
+      clip-path: ellipse(55% 100% at 50% 100%);
+    }
+    .ticket-icon { font-size: 3rem; margin-bottom: 8px; }
+    .ticket-title {
+      font-size: 1.5rem; font-weight: 900;
+      color: #fff; letter-spacing: 3px; text-transform: uppercase;
+    }
+    .ticket-subtitle { color: rgba(255,255,255,0.75); font-size: 0.85rem; margin-top: 4px; }
+
+    /* Status badge */
+    .status-row { text-align: center; padding: 22px 30px 8px; }
+    .status-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 24px; border-radius: 50px; font-size: 0.95rem;
+      font-weight: 700; letter-spacing: 0.5px;
+    }
+    .status-confirmed { background: rgba(99,102,241,0.2); color: #818cf8; border: 1px solid #6366f1; }
+    .status-attended  { background: rgba(16,185,129,0.2); color: #10b981; border: 1px solid #10b981; }
+
+    /* QR section */
+    .qr-section {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 10px 30px 20px;
+    }
+    .qr-box {
+      background: #fff; border-radius: 16px;
+      padding: 10px; width: 140px; height: 140px;
+      box-shadow: 0 8px 30px rgba(99,102,241,0.4);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .qr-box img { width: 120px; height: 120px; display: block; }
+    .ticket-id {
+      font-family: 'Space Mono', monospace;
+      font-size: 0.9rem; color: #a78bfa;
+      letter-spacing: 3px; margin-top: 10px; font-weight: 700;
+    }
+
+    /* Divider with dots */
+    .divider {
+      display: flex; align-items: center; gap: 0;
+      padding: 0 20px; margin: 6px 0 14px;
+    }
+    .divider-line { flex: 1; height: 1px; background: rgba(255,255,255,0.1); }
+    .divider-circle {
+      width: 20px; height: 20px; border-radius: 50%;
+      background: linear-gradient(135deg, #0f0c29, #302b63);
+      border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0;
+    }
+
+    /* Info table */
+    .info-grid {
+      padding: 0 30px 24px;
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .info-item { background: rgba(255,255,255,0.04); border-radius: 12px; padding: 12px 14px; border: 1px solid rgba(255,255,255,0.07); }
+    .info-item.full-width { grid-column: 1 / -1; }
+    .info-label { font-size: 0.7rem; color: #7c6fcd; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
+    .info-value { font-size: 0.95rem; color: #e2e8f0; font-weight: 600; word-break: break-word; }
+
+    /* Footer */
+    .ticket-footer {
+      border-top: 1px dashed rgba(255,255,255,0.1);
+      padding: 16px 30px;
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: 8px;
+    }
+    .footer-brand { font-size: 0.8rem; color: #6366f1; font-weight: 700; letter-spacing: 1px; }
+    .footer-note  { font-size: 0.75rem; color: rgba(255,255,255,0.35); }
+
+    /* Watermark valid/invalid */
+    .watermark-attended {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%) rotate(-35deg);
+      font-size: 5rem; font-weight: 900; color: rgba(16,185,129,0.12);
+      pointer-events: none; z-index: 0; white-space: nowrap; letter-spacing: 6px;
+    }
+
+    .back-btn {
+      display: block; text-align: center; margin-top: 18px;
+      color: rgba(255,255,255,0.45); font-size: 0.85rem; text-decoration: none;
+      transition: color 0.2s;
+    }
+    .back-btn:hover { color: #a78bfa; }
+  </style>
+</head>
+<body>
+  <div class="ticket-wrap">
+    <div class="ticket" style="position:relative; overflow:hidden;">
+
+      {% if ticket.status == 'Attended' %}
+      <div class="watermark-attended">ATTENDED</div>
+      {% endif %}
+
+      <!-- HEADER -->
+      <div class="ticket-header">
+        <div class="ticket-icon">🎫</div>
+        <div class="ticket-title">Eventopia</div>
+        <div class="ticket-subtitle">Official Event Registration Ticket</div>
+      </div>
+
+      <!-- STATUS -->
+      <div class="status-row">
+        {% if ticket.status == 'Attended' %}
+        <span class="status-badge status-attended">
+          <i class="fa-solid fa-circle-check"></i> Attended — Entry Verified
+        </span>
+        {% else %}
+        <span class="status-badge status-confirmed">
+          <i class="fa-solid fa-ticket"></i> Registration Confirmed
+        </span>
+        {% endif %}
+      </div>
+
+      <!-- TICKET ID -->
+      <div style="text-align:center; padding: 14px 30px 8px;">
+        <div style="display:inline-block; background:rgba(99,102,241,0.15); border:1px solid rgba(99,102,241,0.3); padding:8px 24px; border-radius:12px;">
+          <div style="font-size:0.65rem; color:#7c6fcd; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:2px;">Ticket ID</div>
+          <div style="font-family:'Space Mono',monospace; font-size:1rem; color:#a78bfa; letter-spacing:3px; font-weight:700;">{{ ticket.ticket_id }}</div>
+        </div>
+      </div>
+
+      <!-- DIVIDER -->
+      <div class="divider">
+        <div class="divider-circle"></div>
+        <div class="divider-line"></div>
+        <div class="divider-circle"></div>
+      </div>
+
+      <!-- DETAILS GRID -->
+      <div class="info-grid">
+        <div class="info-item full-width">
+          <div class="info-label">👤 Registrant Name</div>
+          <div class="info-value" style="font-size:1.1rem; font-weight:800; color:#c4b5fd;">{{ ticket.name }}</div>
+        </div>
+        <div class="info-item full-width">
+          <div class="info-label">🎉 Event</div>
+          <div class="info-value" style="color:#818cf8; font-weight:700;">{{ ticket.event_name }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">🏷️ Category</div>
+          <div class="info-value">{{ ticket.category_name }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">📅 Date</div>
+          <div class="info-value">{{ ticket.event_date }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">⏰ Time</div>
+          <div class="info-value">{{ ticket.event_time if ticket.event_time else 'TBA' }}</div>
+        </div>
+        <div class="info-item">
+          <div class="info-label">📍 Venue</div>
+          <div class="info-value">{{ ticket.venue }}</div>
+        </div>
+        {% if ticket.team_name %}
+        <div class="info-item full-width">
+          <div class="info-label">👥 Team</div>
+          <div class="info-value">{{ ticket.team_name }}</div>
+        </div>
+        {% endif %}
+        <div class="info-item">
+          <div class="info-label">💳 Payment</div>
+          <div class="info-value" style="color: {% if ticket.payment_status == 'Completed' %}#10b981{% else %}#facc15{% endif %};">
+            {{ ticket.payment_status }}
+          </div>
+        </div>
+        {% if ticket.transaction_id %}
+        <div class="info-item">
+          <div class="info-label">🧾 Txn ID</div>
+          <div class="info-value" style="font-family:'Space Mono',monospace; font-size:0.78rem;">{{ ticket.transaction_id }}</div>
+        </div>
+        {% endif %}
+        {% if ticket.branch %}
+        <div class="info-item">
+          <div class="info-label">🏫 Branch</div>
+          <div class="info-value">{{ ticket.branch }}</div>
+        </div>
+        {% endif %}
+        {% if ticket['class'] %}
+        <div class="info-item">
+          <div class="info-label">📚 Class</div>
+          <div class="info-value">{{ ticket['class'] }}</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- FOOTER -->
+      <div class="ticket-footer">
+        <span class="footer-brand">⚡ EVENTOPIA</span>
+        <span class="footer-note">Show this QR to event staff at the entrance</span>
+      </div>
+    </div>
+
+    <!-- ATTENDANCE SECTION -->
+    {% if ticket.status == 'Attended' %}
+      <div style="margin-top:14px; text-align:center; padding:24px; border-radius:16px; background:rgba(16,185,129,0.1); border:1px solid rgba(16,185,129,0.3); color:#10b981;">
+        <div style="font-size:2.5rem; margin-bottom:10px;">✅</div>
+        <div style="font-weight:800; font-size:1.1rem; text-transform:uppercase; letter-spacing:1px;">Entry Verified</div>
+        <div style="font-size:0.85rem; opacity:0.8; margin-top:4px;">Registrant is present at the event.</div>
+        {% if ticket.attendance_time %}
+        <div style="margin-top:12px; font-size:0.82rem; color:#6ee7b7; font-weight:600;">
+          <i class="fa-solid fa-clock"></i> Marked at: {{ ticket.attendance_time.strftime('%d %b %Y, %I:%M %p') }}
+        </div>
+        {% endif %}
+      </div>
+    {% else %}
+      <div style="margin-top:14px; background:linear-gradient(145deg,#1e1b4b,#1e293b); border:1px solid rgba(139,92,246,0.3); border-radius:20px; padding:24px; box-shadow:0 10px 30px rgba(0,0,0,0.3);">
+        <div style="text-align:center; margin-bottom:18px;">
+          <div style="color:#a78bfa; font-size:0.75rem; font-weight:800; text-transform:uppercase; letter-spacing:2px; margin-bottom:8px;">Attendance Check</div>
+          <div style="color:#fff; font-size:1.2rem; font-weight:800;">Is the student present?</div>
+        </div>
+
+        {% if attend_msg %}
+        <div style="margin-bottom:16px; padding:12px; border-radius:10px; font-size:0.9rem; font-weight:700; text-align:center;
+            {% if attend_success %}background:rgba(16,185,129,0.2);color:#10b981;border:1px solid #10b981;
+            {% else %}background:rgba(239,68,68,0.15);color:#f87171;border:1px solid #ef4444;{% endif %}">
+          {{ attend_msg }}
+        </div>
+        {% endif %}
+
+        <form method="POST" id="attendanceForm" style="display:flex; flex-direction:column; gap:12px;">
+          <div style="display:flex; gap:10px;">
+             <input type="password" name="staff_pin" placeholder="Enter Staff PIN" required
+                style="flex:1; padding:14px; border-radius:12px; border:1px solid rgba(139,92,246,0.4); background:rgba(0,0,0,0.3); color:#fff; font-size:1rem; outline:none; text-align:center;">
+          </div>
+          
+          <button type="submit" 
+            style="width:100%; padding:16px; border-radius:12px; background:linear-gradient(135deg,#10b981,#059669); color:#fff; border:none; font-weight:800; font-size:1rem; cursor:pointer; box-shadow:0 10px 20px rgba(16,185,129,0.2); transition:transform 0.2s;">
+            YES, MARK AS PRESENT
+          </button>
+        </form>
+        
+        <div style="font-size:0.75rem; color:rgba(255,255,255,0.4); text-align:center; margin-top:14px;">
+          <i class="fa-solid fa-shield-halved"></i> Only authorized staff can mark entry.
+        </div>
+      </div>
+    {% endif %}
+
+    <a href="/home" class="back-btn">← Back to Home</a>
+  </div>
+</body>
+</html>
