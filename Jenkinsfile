@@ -28,11 +28,9 @@ pipeline {
 
         stage('3. Automated Unit Testing') {
             steps {
-                echo '=== Stage 3: Python ML Import Diagnostic ==='
+                echo '=== Stage 3: Running PyTest Suite ==='
 
-                bat 'python -c "import pyarrow; print(123)"'
-                bat 'python -c "import pandas; print(456)"'
-                bat 'python -c "import sklearn; print(789)"'
+                bat 'python -m pytest tests/ --doctest-modules -v'
             }
         }
 
@@ -50,9 +48,20 @@ pipeline {
 
                 bat "docker stop ${CONTAINER_NAME} || exit 0"
                 bat "docker rm ${CONTAINER_NAME} || exit 0"
+
                 bat "docker run -d -p ${APP_PORT}:5000 --name ${CONTAINER_NAME} ${IMAGE_NAME}:latest"
 
-                echo "App successfully deployed locally on port ${APP_PORT}"
+                echo "Application successfully deployed on port ${APP_PORT}"
+            }
+        }
+
+        stage('6. Verify Docker Container') {
+            steps {
+                echo '=== Stage 6: Verifying Docker Container ==='
+
+                bat "docker ps"
+
+                bat "docker inspect ${CONTAINER_NAME} --format=\"{{.State.Status}}\""
             }
         }
     }
@@ -67,7 +76,7 @@ pipeline {
         }
 
         failure {
-            echo 'Pipeline Failed! Please check logs.'
+            echo 'Pipeline Failed! Please check Jenkins logs.'
         }
     }
 }
