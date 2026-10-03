@@ -30,9 +30,9 @@ pipeline {
             steps {
                 echo '=== Stage 3: Python ML Import Diagnostic ==='
 
-                bat 'python -c "import pyarrow; print(''PyArrow OK'')"'
-                bat 'python -c "import pandas; print(''Pandas OK'')"'
-                bat 'python -c "import sklearn; print(''Scikit-learn OK'')"'
+                bat 'python -c "import pyarrow; print(^\"PyArrow OK^\")"'
+                bat 'python -c "import pandas; print(^\"Pandas OK^\")"'
+                bat 'python -c "import sklearn; print(^\"Scikit-learn OK^\")"'
             }
         }
 
