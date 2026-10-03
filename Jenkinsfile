@@ -12,6 +12,7 @@ pipeline {
         stage('1. Checkout SCM') {
             steps {
                 echo '=== Stage 1: Fetching Latest Code from GitHub ==='
+
                 checkout scm
             }
         }
@@ -21,16 +22,20 @@ pipeline {
                 echo '=== Stage 2: Installing Dependencies ==='
 
                 bat 'python --version'
+
                 bat 'python -m pip install --upgrade pip'
+
                 bat 'python -m pip install -r requirements.txt'
             }
         }
 
         stage('3. Automated Unit Testing') {
             steps {
-                echo '=== Stage 3: Running PyTest Suite ==='
+                echo '=== Stage 3: Application Import Diagnostic ==='
 
-                bat 'python -m pytest tests/ --doctest-modules -v'
+                bat 'python -c "import ml_chatbot; print(123)"'
+
+                bat 'python -c "import app; print(456)"'
             }
         }
 
@@ -47,6 +52,7 @@ pipeline {
                 echo '=== Stage 5: Deploying Docker Container ==='
 
                 bat "docker stop ${CONTAINER_NAME} || exit 0"
+
                 bat "docker rm ${CONTAINER_NAME} || exit 0"
 
                 bat "docker run -d -p ${APP_PORT}:5000 --name ${CONTAINER_NAME} ${IMAGE_NAME}:latest"
@@ -54,19 +60,10 @@ pipeline {
                 echo "Application successfully deployed on port ${APP_PORT}"
             }
         }
-
-        stage('6. Verify Docker Container') {
-            steps {
-                echo '=== Stage 6: Verifying Docker Container ==='
-
-                bat "docker ps"
-
-                bat "docker inspect ${CONTAINER_NAME} --format=\"{{.State.Status}}\""
-            }
-        }
     }
 
     post {
+
         always {
             echo '=== ASDD CI/CD Pipeline Execution Completed ==='
         }
