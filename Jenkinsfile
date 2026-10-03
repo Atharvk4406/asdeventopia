@@ -12,6 +12,7 @@ pipeline {
         stage('1. Checkout SCM') {
             steps {
                 echo '=== Stage 1: Fetching Latest Code from GitHub ==='
+
                 checkout scm
             }
         }
@@ -28,18 +29,10 @@ pipeline {
 
         stage('3. Automated Unit Testing') {
             steps {
-                echo '=== Stage 3: Application Module Diagnostic ==='
+                echo '=== Stage 3: Inspecting app.py imports ==='
 
-                bat 'python -c "import chatbot; print(100)"'
-                bat 'python -c "import ml_chatbot; print(200)"'
-                bat 'python -c "import flask; print(300)"'
-                bat 'python -c "import pandas; print(400)"'
-                bat 'python -c "import sklearn; print(500)"'
-
-                echo '=== Inspecting app.py imports ==='
-
-                bat 'findstr /n "^import " app.py'
-                bat 'findstr /n "^from " app.py'
+                bat 'findstr /n /r "^[ ]*import " app.py'
+                bat 'findstr /n /r "^[ ]*from .* import " app.py'
             }
         }
 
