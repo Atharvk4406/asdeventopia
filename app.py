@@ -41,8 +41,8 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 # ==========================
 db_config = {
     "host": "localhost",
-    "user": "root",
-    "password": "Atharv",
+    "user": "eventopia_app",
+    "password": "EventopiaDB@123",
     "database": "eventhopia"
 }
 
@@ -2443,4 +2443,4 @@ def start_background_threads():
 if __name__ == "__main__":
     start_background_threads()
     app.run(debug=True, host='0.0.0.0')
-
+
