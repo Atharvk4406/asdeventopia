@@ -12,7 +12,6 @@ pipeline {
         stage('1. Checkout SCM') {
             steps {
                 echo '=== Stage 1: Fetching Latest Code from GitHub ==='
-
                 checkout scm
             }
         }
@@ -20,7 +19,6 @@ pipeline {
         stage('2. Environment & Dependencies') {
             steps {
                 echo '=== Stage 2: Installing Dependencies ==='
-
                 bat 'python --version'
                 bat 'python -m pip install --upgrade pip'
                 bat 'python -m pip install -r requirements.txt'
@@ -31,14 +29,27 @@ pipeline {
             steps {
                 echo '=== Stage 3: Detailed app.py Execution Diagnostic ==='
 
-                bat 'python -c "import ast; source=open(\"app.py\", encoding=\"utf-8\").read(); tree=ast.parse(source); ns={\"__name__\":\"debug_app\"}; print(\"TOTAL TOP LEVEL STATEMENTS:\", len(tree.body)); [ (print(\"EXECUTING app.py LINE:\", n.lineno, \"TYPE:\", type(n).__name__), exec(compile(ast.Module(body=[n], type_ignores=[]), \"app.py\", \"exec\"), ns, ns) ) for n in tree.body ]; print(\"ALL app.py TOP LEVEL STATEMENTS COMPLETED\")"'
+                bat '''
+(
+echo import ast
+echo source = open^('app.py', encoding='utf-8'^).read^(^)
+echo tree = ast.parse^(source^)
+echo ns = {'__name__': 'debug_app'}
+echo print^('TOTAL TOP LEVEL STATEMENTS:', len^(tree.body^)^)
+echo for n in tree.body:
+echo     print^('EXECUTING app.py LINE:', n.lineno, 'TYPE:', type^(n^).__name__^)
+echo     exec^(compile^(ast.Module^(body=[n], type_ignores=[]^), 'app.py', 'exec'^), ns, ns^)
+echo print^('ALL app.py TOP LEVEL STATEMENTS COMPLETED'^)
+) > diagnose_app.py
+'''
+
+                bat 'python diagnose_app.py'
             }
         }
 
         stage('4. Docker Container Build') {
             steps {
                 echo '=== Stage 4: Building Docker Image ==='
-
                 bat "docker build -t ${IMAGE_NAME}:latest ."
             }
         }
@@ -46,11 +57,9 @@ pipeline {
         stage('5. Docker Container Deployment') {
             steps {
                 echo '=== Stage 5: Deploying Docker Container ==='
-
                 bat "docker stop ${CONTAINER_NAME} || exit 0"
                 bat "docker rm ${CONTAINER_NAME} || exit 0"
                 bat "docker run -d -p ${APP_PORT}:5000 --name ${CONTAINER_NAME} ${IMAGE_NAME}:latest"
-
                 echo "Application successfully deployed on port ${APP_PORT}"
             }
         }
