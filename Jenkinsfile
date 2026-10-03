@@ -8,6 +8,7 @@ pipeline {
     }
 
     stages {
+
         stage('1. Checkout SCM') {
             steps {
                 echo '=== Stage 1: Fetching Latest Code from GitHub ==='
@@ -15,18 +16,19 @@ pipeline {
             }
         }
 
-         stage('2. Environment & Dependencies') {
-    steps {
-        echo '=== Stage 2: Installing Dependencies ==='
-        bat 'python --version'
-        bat 'python -m pip install --upgrade pip'
-        bat 'python -m pip install -r requirements.txt'
-    }
-}
+        stage('2. Environment & Dependencies') {
+            steps {
+                echo '=== Stage 2: Installing Dependencies ==='
+                bat 'python --version'
+                bat 'python -m pip install --upgrade pip'
+                bat 'python -m pip install -r requirements.txt'
+            }
+        }
+
         stage('3. Automated Unit Testing') {
             steps {
                 echo '=== Stage 3: Running Pytest Suite ==='
-                bat '"C:\\Users\\Atharv\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" -m pytest tests/ --doctest-modules -v'
+                bat 'python -m pytest tests/ --doctest-modules -v'
             }
         }
 
@@ -40,10 +42,9 @@ pipeline {
         stage('5. Docker Container Deployment') {
             steps {
                 echo '=== Stage 5: Deploying Docker Container ==='
-                       bat '"C:\\Users\\Atharv\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" --version'
-bat '"C:\\Users\\Atharv\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" -m pip install --upgrade pip'
-bat '"C:\\Users\\Atharv\\AppData\\Local\\Programs\\Python\\Python313\\python.exe" -m pip install -r requirements.txt'                
-${CONTAINER_NAME} ${IMAGE_NAME}:latest"
+                bat "docker stop ${CONTAINER_NAME} || exit 0"
+                bat "docker rm ${CONTAINER_NAME} || exit 0"
+                bat "docker run -d -p ${APP_PORT}:5000 --name ${CONTAINER_NAME} ${IMAGE_NAME}:latest"
                 echo "App successfully deployed locally on port ${APP_PORT}"
             }
         }
@@ -53,11 +54,13 @@ ${CONTAINER_NAME} ${IMAGE_NAME}:latest"
         always {
             echo '=== ASDD CI/CD Pipeline Execution Completed ==='
         }
+
         success {
-            echo '✅ Pipeline Succeeded! Application is active & healthy.'
+            echo 'Pipeline Succeeded! Application is active & healthy.'
         }
+
         failure {
-            echo '❌ Pipeline Failed! Please check logs.'
+            echo 'Pipeline Failed! Please check logs.'
         }
     }
 }
