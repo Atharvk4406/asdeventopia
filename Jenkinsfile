@@ -19,6 +19,7 @@ pipeline {
         stage('2. Environment & Dependencies') {
             steps {
                 echo '=== Stage 2: Installing Dependencies ==='
+
                 bat 'python --version'
                 bat 'python -m pip install --upgrade pip'
                 bat 'python -m pip install -r requirements.txt'
@@ -26,16 +27,19 @@ pipeline {
         }
 
         stage('3. Automated Unit Testing') {
-    steps {
-        echo '=== Stage 3: Python ML Import Diagnostic ==='
-        bat 'python -c "import pyarrow; print(\"PyArrow OK\")"'
-        bat 'python -c "import pandas; print(\"Pandas OK\")"'
-        bat 'python -c "import sklearn; print(\"Scikit-learn OK\")"'
-    }
-}
+            steps {
+                echo '=== Stage 3: Python ML Import Diagnostic ==='
+
+                bat 'python -c "import pyarrow; print(''PyArrow OK'')"'
+                bat 'python -c "import pandas; print(''Pandas OK'')"'
+                bat 'python -c "import sklearn; print(''Scikit-learn OK'')"'
+            }
+        }
+
         stage('4. Docker Container Build') {
             steps {
                 echo '=== Stage 4: Building Docker Image ==='
+
                 bat "docker build -t ${IMAGE_NAME}:latest ."
             }
         }
@@ -43,9 +47,11 @@ pipeline {
         stage('5. Docker Container Deployment') {
             steps {
                 echo '=== Stage 5: Deploying Docker Container ==='
+
                 bat "docker stop ${CONTAINER_NAME} || exit 0"
                 bat "docker rm ${CONTAINER_NAME} || exit 0"
                 bat "docker run -d -p ${APP_PORT}:5000 --name ${CONTAINER_NAME} ${IMAGE_NAME}:latest"
+
                 echo "App successfully deployed locally on port ${APP_PORT}"
             }
         }
