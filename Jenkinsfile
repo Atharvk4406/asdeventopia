@@ -35,15 +35,15 @@ echo import ast
 echo source = open^('app.py', encoding='utf-8'^).read^(^)
 echo tree = ast.parse^(source^)
 echo ns = {'__name__': 'debug_app'}
-echo print^('TOTAL TOP LEVEL STATEMENTS:', len^(tree.body^)^)
+echo print^('TOTAL TOP LEVEL STATEMENTS:', len^(tree.body^), flush=True^)
 echo for n in tree.body:
-echo     print^('EXECUTING app.py LINE:', n.lineno, 'TYPE:', type^(n^).__name__^)
+echo     print^('EXECUTING app.py LINE:', n.lineno, 'TYPE:', type^(n^).__name__, flush=True^)
 echo     exec^(compile^(ast.Module^(body=[n], type_ignores=[]^), 'app.py', 'exec'^), ns, ns^)
-echo print^('ALL app.py TOP LEVEL STATEMENTS COMPLETED'^)
+echo print^('ALL app.py TOP LEVEL STATEMENTS COMPLETED', flush=True^)
 ) > diagnose_app.py
 '''
 
-                bat 'python diagnose_app.py'
+                bat 'python -u diagnose_app.py'
             }
         }
 
