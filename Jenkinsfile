@@ -12,7 +12,6 @@ pipeline {
         stage('1. Checkout SCM') {
             steps {
                 echo '=== Stage 1: Fetching Latest Code from GitHub ==='
-
                 checkout scm
             }
         }
@@ -22,9 +21,7 @@ pipeline {
                 echo '=== Stage 2: Installing Dependencies ==='
 
                 bat 'python --version'
-
                 bat 'python -m pip install --upgrade pip'
-
                 bat 'python -m pip install -r requirements.txt'
             }
         }
@@ -35,7 +32,9 @@ pipeline {
 
                 bat 'python -c "import ml_chatbot; print(123)"'
 
-                bat 'python -c "import app; print(456)"'
+                bat 'python -c "import chatbot; print(456)"'
+
+                bat 'python -c "import app; print(789)"'
             }
         }
 
@@ -52,7 +51,6 @@ pipeline {
                 echo '=== Stage 5: Deploying Docker Container ==='
 
                 bat "docker stop ${CONTAINER_NAME} || exit 0"
-
                 bat "docker rm ${CONTAINER_NAME} || exit 0"
 
                 bat "docker run -d -p ${APP_PORT}:5000 --name ${CONTAINER_NAME} ${IMAGE_NAME}:latest"
@@ -63,7 +61,6 @@ pipeline {
     }
 
     post {
-
         always {
             echo '=== ASDD CI/CD Pipeline Execution Completed ==='
         }
