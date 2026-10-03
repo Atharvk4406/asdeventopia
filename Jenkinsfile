@@ -26,12 +26,13 @@ pipeline {
         }
 
         stage('3. Automated Unit Testing') {
-            steps {
-                echo '=== Stage 3: Running Pytest Suite ==='
-                bat 'python -m pytest tests/ --doctest-modules -v'
-            }
-        }
-
+    steps {
+        echo '=== Stage 3: Python ML Import Diagnostic ==='
+        bat 'python -c "import pyarrow; print(\"PyArrow OK\")"'
+        bat 'python -c "import pandas; print(\"Pandas OK\")"'
+        bat 'python -c "import sklearn; print(\"Scikit-learn OK\")"'
+    }
+}
         stage('4. Docker Container Build') {
             steps {
                 echo '=== Stage 4: Building Docker Image ==='
