@@ -33,14 +33,14 @@ pipeline {
             }
         }
 
-        stage('4. Docker Container Build') {
-            steps {
-                echo '=== Stage 4: Building Docker Image ==='
-                bat "docker build -t ${IMAGE_NAME}:latest ."
-            }
-        }
-
-        stage('5. Docker Container Deployment') {
+        stage('4. Docker Environment Diagnostic') {
+    steps {
+        echo '=== Stage 4: Docker Environment Diagnostic ==='
+        bat 'echo %PATH%'
+        bat 'where docker'
+        bat 'docker --version'
+    }
+}        stage('5. Docker Container Deployment') {
             steps {
                 echo '=== Stage 5: Deploying Docker Container ==='
                 bat "docker stop ${CONTAINER_NAME} || exit 0"
