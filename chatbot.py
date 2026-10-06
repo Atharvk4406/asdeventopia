@@ -1,6 +1,9 @@
 import mysql.connector
 from flask import jsonify, session
 import os
+import json
+import random
+from ml_chatbot import predict_intent
 
 try:
     from dotenv import load_dotenv
@@ -8,31 +11,49 @@ try:
 except ImportError:
     pass
 
+# Load local intents for ML Fallback
+local_intents = {}
+try:
+    with open("intents.json") as f:
+        data = json.load(f)
+        for item in data.get("intents", []):
+            local_intents[item["tag"]] = item.get("responses", [])
+except Exception as err:
+    print("Warning: Could not load intents.json for fallback:", err)
+
 # Configure Gemini AI gracefully
 api_key = os.getenv("GEMINI_API_KEY")
 model = None
 
-try:
-    import google.generativeai as genai
-    print(f"DEBUG: Loaded API Key from env: {api_key}")
-    if api_key and api_key != "YOUR_API_KEY_HERE":
+if api_key and api_key != "YOUR_API_KEY_HERE":
+    try:
+        import google.generativeai as genai
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-3-flash-preview') 
-        print("DEBUG: Gemini model successfully initialized! (gemini-3-flash-preview)")
-    else:
-        print("DEBUG: Condition failed! Either no api key or it's YOUR_API_KEY_HERE")
-except Exception as e:
-    print(f"DEBUG: Failed to initialize Google Generative AI: {e}")
+        
+        # Try standard Gemini models in order of preference
+        for model_name in ['gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-flash-latest']:
+            try:
+                model = genai.GenerativeModel(model_name)
+                print(f"DEBUG: Successfully initialized Gemini model: {model_name}")
+                break
+            except Exception:
+                continue
+    except Exception as e:
+        print(f"DEBUG: Failed to initialize Google Generative AI: {e}")
 
 def get_bot_response(user_message, db_config):
     message = user_message.strip()
     username = session.get("user", "Guest")
 
+    events = []
+    competitions = []
+    tech_fests = []
+
+    # Fetch DB Context if MySQL is available
     try:
         conn = mysql.connector.connect(**db_config)
         cursor = conn.cursor(dictionary=True)
 
-        # FETCH ALL EVENTS AS CONTEXT
         cursor.execute("""
             SELECT e.id, e.name, e.description, e.category, e.department, e.event_date, e.event_time, e.venue, e.price,
                    t.name as tech_fest_name,
@@ -44,84 +65,68 @@ def get_bot_response(user_message, db_config):
         """)
         events = cursor.fetchall()
         
-        # FETCH ALL COMPETITIONS
         cursor.execute("SELECT name, type, description, competition_date, venue FROM competitions")
         competitions = cursor.fetchall()
 
-        # FETCH ALL TECH FESTS
         cursor.execute("SELECT name, department, description, fest_date, venue FROM tech_fests")
         tech_fests = cursor.fetchall()
         
         cursor.close()
         conn.close()
-        
-        # If API KEY is missing, fallback to a simple manual response so the app doesn't crash
-        if model is None:
-            return jsonify({
-                "response": "⚠️ **System Notice**: The Chatbot is currently in minimal mode because the `GEMINI_API_KEY` is missing in the `.env` file! Please ask the administrator to configure it."
-            })
+    except Exception as db_err:
+        print("Database connection notice for chatbot:", db_err)
 
-        # BUILD SYSTEM PROMPT CONTEXT
-        from datetime import datetime
-        today = datetime.now()
-        today_date = today.strftime('%Y-%m-%d')
+    # 1. TRY GEMINI GENERATIVE AI
+    if model is not None:
+        try:
+            from datetime import datetime
+            today = datetime.now()
+            today_date = today.strftime('%Y-%m-%d')
 
-        context_str = f"You are the official AI Assistant for 'Eventopia', a college event portal. Today's Date: {today_date}. You are talking to user: {username}.\n"
-        context_str += "Here is the live database of tech fests, competitions, and events (classified as UPCOMING or CONCLUDED based on today's date):\n"
-        
-        if not events and not competitions and not tech_fests:
-            context_str += "Currently, there are no events or competitions recorded in the system.\n"
-        else:
+            context_str = f"You are the official AI Assistant for 'Eventopia', a college event portal. Today's Date: {today_date}. User: {username}.\n"
+            context_str += "Here is the live database of tech fests, competitions, and events:\n"
+            
             if tech_fests:
-                context_str += "--- DEPARTMENT TECH FESTS ---\n"
+                context_str += "--- TECH FESTS ---\n"
                 for t in tech_fests:
-                    status = "[UPCOMING]"
-                    try:
-                        f_date = datetime.strptime(str(t['fest_date']), '%Y-%m-%d')
-                        if f_date.date() < today.date(): status = "[CONCLUDED]"
-                    except: pass
-                    context_str += f"- {status} {t['name']} (Dept: {t['department']}): {t['description']} | Venue: {t['venue']} | Date: {t['fest_date']}\n"
+                    context_str += f"- {t.get('name')} ({t.get('department')}): {t.get('description')} | Date: {t.get('fest_date')}\n"
 
             if events:
-                context_str += "--- EVENTS & SUB-EVENTS ---\n"
+                context_str += "--- EVENTS ---\n"
                 for e in events:
-                    status = "[UPCOMING]"
-                    try:
-                        ev_date = datetime.strptime(str(e['event_date']), '%Y-%m-%d')
-                        if ev_date.date() < today.date(): status = "[CONCLUDED]"
-                    except: pass
-                    
-                    price_str = "Free" if e.get('price', 0) == 0 else f"₹{e.get('price', 0)}"
-                    sub_cats = f" | Sub-Categories: {e['sub_categories']}" if e['sub_categories'] else ""
-                    parent_fest = f" [Part of Tech Fest: {e['tech_fest_name']}]" if e.get('tech_fest_name') else ""
-                    context_str += f"- {status} {e['name']}{parent_fest} ({e['category']} / {e['department']}): {e['description']} | Venue: {e['venue']} | Time: {e['event_date']} at {e['event_time']} | Price: {price_str}{sub_cats}\n"
-            
+                    context_str += f"- {e.get('name')} ({e.get('category')}): {e.get('description')} | Venue: {e.get('venue')} | Date: {e.get('event_date')}\n"
+
             if competitions:
                 context_str += "--- COMPETITIONS ---\n"
                 for c in competitions:
-                    status = "[UPCOMING]"
-                    try:
-                        c_date = datetime.strptime(str(c['competition_date']), '%Y-%m-%d')
-                        if c_date.date() < today.date(): status = "[CONCLUDED]"
-                    except: pass
-                    context_str += f"- {status} {c['name']} (Type: {c['type']}): {c['description']} | Venue: {c['venue']} | Date: {c['competition_date']}\n"
+                    context_str += f"- {c.get('name')}: {c.get('description')} | Date: {c.get('competition_date')}\n"
 
-        context_str += "\nInstructions: Answer the user's question clearly and conversationally. If they ask about events, tech fests, or competitions, reference the provided list. "
-        context_str += "If they ask about sub-events, explicitly list the events marked as '[Part of Tech Fest: ...]', or mention the 'Sub-Categories'. "
-        context_str += "If they explicitly ask to 'go to home page', 'navigate to home', or 'take me home', do NOT write any conversational text. Instead, respond EXACTLY with: [NAVIGATE_HOME] "
-        context_str += "If they ask you to 'create a notification', 'send a notification', or 'announce something' to the notification panel, respond EXACTLY with the format: [CREATE_NOTIFICATION] Title | Message (replace Title and Message with a catchy title and message based on their request). Do not include any other text. "
-        context_str += "If they ask a general knowledge question... answer it brilliantly but concisely. "
-        context_str += "Always be polite and helpful. format your response in plain text (can use emojis). Do NOT hallucinate events that aren't in the list."
+            context_str += "\nAnswer politely, accurately, and concisely based on the events provided."
 
-        prompt = f"{context_str}\n\nUser Question: {message}\nAssistant:"
+            prompt = f"{context_str}\n\nUser: {message}\nAssistant:"
+            response = model.generate_content(prompt)
+            if response and response.text:
+                ai_text = response.text.replace('\n', '<br>')
+                return jsonify({"response": ai_text})
+        except Exception as ai_err:
+            print("Gemini API call failed, falling back to ML Chatbot model:", ai_err)
 
-        response = model.generate_content(prompt)
-        ai_text = response.text.replace('\n', '<br>')
-        
-        return jsonify({"response": ai_text})
+    # 2. LOCAL ML RANDOMFOREST FALLBACK ENGINE
+    try:
+        tag, confidence = predict_intent(message)
+        print(f"ML Intent prediction: tag='{tag}', confidence={confidence:.2f}")
 
-    except Exception as e:
-        print("Chatbot Error:", e)
-        return jsonify({
-            "response": "Oops! I encountered an error connecting to my neural network. Please try again later."
-        })
+        responses = local_intents.get(tag, [])
+        if responses:
+            chosen_response = random.choice(responses)
+            if tag == "events_list" and events:
+                event_names = ", ".join([e.get('name') for e in events[:5]])
+                chosen_response += f"<br>Current Events: <b>{event_names}</b>"
+            return jsonify({"response": chosen_response})
+    except Exception as ml_err:
+        print("ML Fallback error:", ml_err)
+
+    # 3. GENERAL FRIENDLY FALLBACK
+    return jsonify({
+        "response": "Hello! I am your Eventopia Assistant. You can ask me about available events, registration processes, event fees, and competition schedules!"
+    })

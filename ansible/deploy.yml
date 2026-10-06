@@ -2,12 +2,14 @@
 - name: ASDD DevOps Server Configuration & Deployment Playbook
   hosts: webservers
   become: yes
+
   vars:
     docker_image: "ai-event-management-app"
     container_name: "ai-event-management-container"
     app_port: 5000
 
   tasks:
+
     - name: 1. Update APT Repository Cache
       apt:
         update_cache: yes
@@ -55,7 +57,7 @@
       ignore_errors: yes
 
     - name: 9. Launch New Application Container
-      command: docker run -d -p {{ app_port }}:5000 --name {{ container_name }} --restart always {{ docker_image }}:latest
+      command: docker run -d --network host --env-file /home/ubuntu/eventopia.env --name {{ container_name }} --restart always {{ docker_image }}:latest
 
     - name: 10. Verify Application Health Endpoint
       uri:

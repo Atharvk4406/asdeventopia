@@ -1,3 +1,2 @@
 [webservers]
-# Replace YOUR_AWS_EC2_PUBLIC_IP with your EC2 IP from Terraform output
-aws_ec2_target ansible_host=YOUR_AWS_EC2_PUBLIC_IP ansible_user=ubuntu ansible_ssh_private_key_file=~/.ssh/aws-key.pem
+aws_ec2_target ansible_host=65.0.138.207 ansible_user=ubuntu ansible_ssh_private_key_file=/home/atharv/.ssh/asdd-key.pem

@@ -1,5 +1,6 @@
 terraform {
   required_version = ">= 1.0.0"
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -57,7 +58,7 @@ resource "aws_security_group" "asdd_sg" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # Egress (All Outbound Traffic)
+  # Egress - All Outbound Traffic
   egress {
     from_port   = 0
     to_port     = 0
@@ -74,6 +75,7 @@ resource "aws_security_group" "asdd_sg" {
 resource "aws_instance" "asdd_server" {
   ami                    = data.aws_ami.ubuntu.id
   instance_type          = "t3.micro"
+  key_name               = "asdd-key"
   vpc_security_group_ids = [aws_security_group.asdd_sg.id]
 
   user_data = <<-EOF
