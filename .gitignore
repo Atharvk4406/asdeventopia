@@ -10,3 +10,5 @@ venv/
 scratch/
 static/uploads/
 static/tickets/
+
+terraform/.terraform/
