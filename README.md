@@ -93,3 +93,5 @@ pytest
 ## DevOps Workflow
 
 Eventopia follows an Agile and DevOps workflow using GitHub, PyTest, Docker, Jenkins, Terraform, and Ansible.
+
+Jenkins Poll SCM test
