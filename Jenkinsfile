@@ -2,17 +2,22 @@
 pipeline {
     agent any
 
+    options {
+        timestamps()
+        disableConcurrentBuilds()
+    }
+
     environment {
-        IMAGE_NAME = 'ai-event-management-app'
-        CONTAINER_NAME = 'ai-event-management-container'
-        APP_PORT = '5000'
         EC2_HOST = '65.0.138.207'
-        EC2_USER = 'ubuntu'
+        EC2_SSH_USER = 'ubuntu'
         SSH_CREDENTIAL_ID = 'aws-ec2-ssh'
+        APP_CONTAINER = 'ai-event-management-container'
+        APP_IMAGE = 'ai-event-management-app'
+        REMOTE_APP_DIR = '/home/ubuntu/asdd-app'
+        KNOWN_HOSTS = 'C:/ProgramData/Jenkins/.ssh/known_hosts'
     }
 
     stages {
-
         stage('1. Checkout SCM') {
             steps {
                 echo '=== Stage 1: Fetching Latest Code from GitHub ==='
@@ -32,15 +37,15 @@ pipeline {
         stage('3. Automated Unit Testing') {
             steps {
                 echo '=== Stage 3: Running PyTest inside Docker ==='
-                bat "docker build -t ${IMAGE_NAME}:test ."
-                bat "docker run --rm ${IMAGE_NAME}:test python -m pytest tests/ --doctest-modules -v"
+                bat "docker build -t ${APP_IMAGE}:test ."
+                bat "docker run --rm ${APP_IMAGE}:test python -m pytest tests/ --doctest-modules -v"
             }
         }
 
         stage('4. Docker Container Build') {
             steps {
                 echo '=== Stage 4: Building Docker Image ==='
-                bat "docker build -t ${IMAGE_NAME}:latest ."
+                bat "docker build -t ${APP_IMAGE}:latest ."
             }
         }
 
@@ -56,33 +61,34 @@ pipeline {
                     )
                 ]) {
                     script {
-                        def deployScript = '''
+                        writeFile file: 'deploy-ec2.sh', text: '''#!/bin/bash
 set -eu
 
 cd /home/ubuntu/asdd-app
 
-echo "Checking deployment prerequisites..."
-test -f /home/ubuntu/eventopia.env
-command -v docker
+if [ ! -f /home/ubuntu/eventopia.env ]; then
+    echo "ERROR: Required environment file is missing."
+    exit 1
+fi
 
 echo "Fetching latest application code..."
 git fetch origin main
 git reset --hard origin/main
 
-echo "Building the application image..."
+echo "Building Docker image..."
 docker build -t ai-event-management-app:latest .
 
-echo "Replacing the application container..."
+echo "Replacing application container..."
 docker rm -f ai-event-management-container || true
 
 docker run -d \
-  --name ai-event-management-container \
-  --network host \
-  --env-file /home/ubuntu/eventopia.env \
-  --restart unless-stopped \
-  ai-event-management-app:latest
+    --name ai-event-management-container \
+    --restart unless-stopped \
+    --network host \
+    --env-file /home/ubuntu/eventopia.env \
+    ai-event-management-app:latest
 
-echo "Waiting for the health endpoint..."
+echo "Waiting for application health endpoint..."
 for attempt in $(seq 1 12); do
     if curl --fail --silent http://127.0.0.1:5000/health; then
         echo
@@ -92,40 +98,34 @@ for attempt in $(seq 1 12); do
     sleep 5
 done
 
-echo "Health check failed."
-docker logs --tail 80 ai-event-management-container || true
+echo "ERROR: Application health check failed."
+docker logs --tail 100 ai-event-management-container || true
 exit 1
 '''
 
-                        writeFile(
-                            file: 'deploy-ec2.sh',
-                            text: deployScript.replace('\r', '')
-                        )
-
-                        bat """
+                        bat '''
 @echo off
-ssh -i "%EC2_SSH_KEY%" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=yes %EC2_SSH_USER%@${EC2_HOST} "bash -s" < deploy-ec2.sh
-if errorlevel 1 exit /b 1
-"""
+ssh -i "%EC2_SSH_KEY%" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=C:/ProgramData/Jenkins/.ssh/known_hosts" -o GlobalKnownHostsFile=NUL "%EC2_SSH_USER%@%EC2_HOST%" "bash -s" < deploy-ec2.sh
+'''
                     }
                 }
-
-                echo 'AWS deployment and health check completed.'
             }
         }
     }
 
     post {
-        always {
-            echo '=== ASDD CI/CD Pipeline Execution Completed ==='
-        }
-
         success {
-            echo 'Pipeline Succeeded! Application deployment health check passed.'
+            echo '=== SUCCESS: Eventopia CI/CD Pipeline Completed ==='
+            echo 'All stages passed and the deployment health check succeeded.'
         }
 
         failure {
-            echo 'Pipeline Failed! Please check Jenkins logs.'
+            echo '=== FAILURE: Eventopia CI/CD Pipeline Failed ==='
+            echo 'Check the failed stage in Console Output.'
+        }
+
+        always {
+            echo '=== ASDD CI/CD Pipeline Execution Completed ==='
         }
     }
 }
