@@ -66,6 +66,41 @@ if errorlevel 1 exit /b 1
             }
         }
 
+        stage('Local Docker Container Deployment') {
+            steps {
+                bat '''
+@echo off
+setlocal
+
+echo Updating the local Eventopia container...
+
+REM Build the latest local image.
+docker build -t ai-event-management-app:latest .
+if errorlevel 1 exit /b 1
+
+REM Remove the old local container if it exists.
+docker rm -f ai-event-management-container 2>nul
+
+REM Start the updated local container.
+docker run -d ^
+    --name ai-event-management-container ^
+    --restart unless-stopped ^
+    -p 5000:5000 ^
+    ai-event-management-app:latest
+
+if errorlevel 1 exit /b 1
+
+echo Waiting for the local application health endpoint...
+
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$ok = $false; for ($i = 0; $i -lt 12; $i++) { try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:5000/health' -UseBasicParsing -TimeoutSec 3; if ($r.StatusCode -eq 200) { $ok = $true; break } } catch {}; Start-Sleep -Seconds 5 }; if (-not $ok) { docker logs --tail 100 ai-event-management-container; exit 1 }"
+
+if errorlevel 1 exit /b 1
+
+echo Local Docker deployment and health check successful.
+'''
+            }
+        }
+
         stage('Docker Container Deployment') {
             steps {
                 withCredentials([
@@ -86,20 +121,16 @@ ENV_FILE="/home/ubuntu/eventopia.env"
 CONTAINER="ai-event-management-container"
 IMAGE="ai-event-management-app"
 
-echo "Starting Eventopia deployment..."
+echo "Starting Eventopia EC2 deployment..."
 
-# Verify that the existing environment file is present.
-# Do not overwrite or modify this file.
+# Preserve the existing EC2 environment file.
 if [ ! -f "$ENV_FILE" ]; then
     echo "ERROR: Environment file not found: $ENV_FILE"
     exit 1
 fi
 
-# Enter the existing application repository.
 cd "$APP_DIR"
 
-# Trust only this specific repository for the ubuntu user.
-echo "Configuring Git safe directory..."
 git config --global --add safe.directory "$APP_DIR"
 
 echo "Fetching latest application code..."
@@ -111,10 +142,10 @@ git reset --hard origin/main
 echo "Building Docker image on EC2..."
 docker build -t "$IMAGE:latest" .
 
-echo "Removing the old application container if present..."
+echo "Removing the old EC2 container if present..."
 docker rm -f "$CONTAINER" 2>/dev/null || true
 
-echo "Starting the updated application..."
+echo "Starting the updated EC2 container..."
 docker run -d \
     --name "$CONTAINER" \
     --restart unless-stopped \
@@ -122,12 +153,12 @@ docker run -d \
     --env-file "$ENV_FILE" \
     "$IMAGE:latest"
 
-echo "Waiting for the health endpoint..."
+echo "Waiting for the EC2 health endpoint..."
 
 for attempt in $(seq 1 12); do
     if curl --fail --silent http://127.0.0.1:5000/health; then
         echo
-        echo "Deployment and health check successful."
+        echo "EC2 deployment and health check successful."
         exit 0
     fi
 
@@ -135,7 +166,7 @@ for attempt in $(seq 1 12); do
     sleep 5
 done
 
-echo "ERROR: Application health check failed."
+echo "ERROR: EC2 application health check failed."
 docker logs --tail 100 "$CONTAINER" || true
 exit 1
 '''
@@ -195,8 +226,9 @@ exit /b %SSH_RESULT%
 
     post {
         success {
-            echo 'All five pipeline stages completed successfully.'
-            echo 'Health endpoint: http://65.0.138.207:5000/health'
+            echo 'All six pipeline stages completed successfully.'
+            echo 'Local health endpoint: http://localhost:5000/health'
+            echo 'EC2 health endpoint: http://65.0.138.207:5000/health'
         }
 
         failure {
