@@ -11,101 +11,172 @@ pipeline {
         EC2_HOST = '65.0.138.207'
         EC2_SSH_USER = 'ubuntu'
         SSH_CREDENTIAL_ID = 'aws-ec2-ssh'
+
         APP_CONTAINER = 'ai-event-management-container'
         APP_IMAGE = 'ai-event-management-app'
         REMOTE_APP_DIR = '/home/ubuntu/asdd-app'
+
         KNOWN_HOSTS = 'C:/ProgramData/Jenkins/.ssh/known_hosts'
     }
 
     stages {
-        stage('1. Checkout SCM') {
+
+        stage('Checkout SCM') {
             steps {
-                echo '=== Stage 1: Fetching Latest Code from GitHub ==='
                 checkout scm
             }
         }
 
-        stage('2. Environment & Dependencies') {
+        stage('Environment & Dependencies') {
             steps {
-                echo '=== Stage 2: Installing Dependencies ==='
-                bat 'python --version'
-                bat 'python -m pip install --upgrade pip'
-                bat 'python -m pip install -r requirements.txt'
+                bat '''
+@echo off
+python --version
+if errorlevel 1 exit /b 1
+
+docker --version
+if errorlevel 1 exit /b 1
+
+docker info
+if errorlevel 1 exit /b 1
+'''
             }
         }
 
-        stage('3. Automated Unit Testing') {
+        stage('Automated Unit Testing') {
             steps {
-                echo '=== Stage 3: Running PyTest inside Docker ==='
-                bat "docker build -t ${APP_IMAGE}:test ."
-                bat "docker run --rm ${APP_IMAGE}:test python -m pytest tests/ --doctest-modules -v"
+                bat '''
+@echo off
+docker build -t ai-event-management-app:test .
+if errorlevel 1 exit /b 1
+
+docker run --rm ai-event-management-app:test python -m pytest tests/ --doctest-modules -v
+if errorlevel 1 exit /b 1
+'''
             }
         }
 
-        stage('4. Docker Container Build') {
+        stage('Docker Container Build') {
             steps {
-                echo '=== Stage 4: Building Docker Image ==='
-                bat "docker build -t ${APP_IMAGE}:latest ."
+                bat '''
+@echo off
+docker build -t ai-event-management-app:latest .
+if errorlevel 1 exit /b 1
+'''
             }
         }
 
-        stage('5. Docker Container Deployment') {
+        stage('Docker Container Deployment') {
             steps {
-                echo '=== Stage 5: Deploying to AWS EC2 using SSH ==='
-
                 withCredentials([
                     sshUserPrivateKey(
-                        credentialsId: "${SSH_CREDENTIAL_ID}",
+                        credentialsId: 'aws-ec2-ssh',
                         keyFileVariable: 'EC2_SSH_KEY',
                         usernameVariable: 'EC2_SSH_USER'
                     )
                 ]) {
                     script {
-                        writeFile file: 'deploy-ec2.sh', text: '''#!/bin/bash
-set -eu
+                        writeFile(
+                            file: 'deploy-ec2.sh',
+                            text: '''#!/bin/bash
+set -Eeuo pipefail
 
-cd /home/ubuntu/asdd-app
+APP_DIR="/home/ubuntu/asdd-app"
+ENV_FILE="/home/ubuntu/eventopia.env"
+CONTAINER="ai-event-management-container"
+IMAGE="ai-event-management-app"
 
-if [ ! -f /home/ubuntu/eventopia.env ]; then
-    echo "ERROR: Required environment file is missing."
+echo "Starting Eventopia deployment..."
+
+# Preserve the existing environment file.
+if [ ! -f "$ENV_FILE" ]; then
+    echo "ERROR: Environment file not found."
     exit 1
 fi
+
+cd "$APP_DIR"
 
 echo "Fetching latest application code..."
 git fetch origin main
 git reset --hard origin/main
 
-echo "Building Docker image..."
-docker build -t ai-event-management-app:latest .
+echo "Building Docker image on EC2..."
+docker build -t "$IMAGE:latest" .
 
-echo "Replacing application container..."
-docker rm -f ai-event-management-container || true
+echo "Replacing the existing application container..."
+docker rm -f "$CONTAINER" 2>/dev/null || true
 
 docker run -d \
-    --name ai-event-management-container \
+    --name "$CONTAINER" \
     --restart unless-stopped \
     --network host \
-    --env-file /home/ubuntu/eventopia.env \
-    ai-event-management-app:latest
+    --env-file "$ENV_FILE" \
+    "$IMAGE:latest"
 
-echo "Waiting for application health endpoint..."
+echo "Checking application health..."
+
 for attempt in $(seq 1 12); do
     if curl --fail --silent http://127.0.0.1:5000/health; then
         echo
-        echo "Deployment health check passed."
+        echo "Deployment and health check successful."
         exit 0
     fi
+
+    echo "Health check attempt $attempt/12 failed."
     sleep 5
 done
 
 echo "ERROR: Application health check failed."
-docker logs --tail 100 ai-event-management-container || true
+docker logs --tail 100 "$CONTAINER" || true
 exit 1
 '''
+                        )
 
                         bat '''
 @echo off
-ssh -i "%EC2_SSH_KEY%" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=C:/ProgramData/Jenkins/.ssh/known_hosts" -o GlobalKnownHostsFile=NUL "%EC2_SSH_USER%@%EC2_HOST%" "bash -s" < deploy-ec2.sh
+setlocal
+
+set "SSH_KEY_COPY=%WORKSPACE%@tmp\\ssh-deploy-%BUILD_NUMBER%.pem"
+set "SSH_RESULT=1"
+
+if not exist "%WORKSPACE%@tmp" mkdir "%WORKSPACE%@tmp"
+if errorlevel 1 goto cleanup
+
+echo Copying SSH key to a restricted temporary file...
+copy /Y "%EC2_SSH_KEY%" "%SSH_KEY_COPY%" >nul
+if errorlevel 1 goto cleanup
+
+echo Restricting SSH key permissions...
+icacls "%SSH_KEY_COPY%" /inheritance:r
+if errorlevel 1 goto cleanup
+
+icacls "%SSH_KEY_COPY%" /grant:r "*S-1-5-18:F"
+if errorlevel 1 goto cleanup
+
+icacls "%SSH_KEY_COPY%" /remove:g "BUILTIN\\Users" "Authenticated Users" "Everyone" >nul 2>&1
+
+echo Connecting to EC2 and deploying Eventopia...
+
+ssh -i "%SSH_KEY_COPY%" ^
+    -o BatchMode=yes ^
+    -o ConnectTimeout=15 ^
+    -o StrictHostKeyChecking=yes ^
+    -o "UserKnownHostsFile=C:/ProgramData/Jenkins/.ssh/known_hosts" ^
+    -o GlobalKnownHostsFile=NUL ^
+    "%EC2_SSH_USER%@%EC2_HOST%" "bash -s" < deploy-ec2.sh
+
+set "SSH_RESULT=%ERRORLEVEL%"
+
+:cleanup
+if exist "%SSH_KEY_COPY%" del /F "%SSH_KEY_COPY%" >nul 2>&1
+
+if "%SSH_RESULT%"=="0" (
+    echo EC2 deployment completed successfully.
+) else (
+    echo EC2 deployment failed. Check the console output.
+)
+
+exit /b %SSH_RESULT%
 '''
                     }
                 }
@@ -115,17 +186,16 @@ ssh -i "%EC2_SSH_KEY%" -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChe
 
     post {
         success {
-            echo '=== SUCCESS: Eventopia CI/CD Pipeline Completed ==='
-            echo 'All stages passed and the deployment health check succeeded.'
+            echo 'All five pipeline stages completed successfully.'
+            echo 'Health endpoint: http://65.0.138.207:5000/health'
         }
 
         failure {
-            echo '=== FAILURE: Eventopia CI/CD Pipeline Failed ==='
-            echo 'Check the failed stage in Console Output.'
+            echo 'Pipeline failed. Review the first error in Console Output.'
         }
 
         always {
-            echo '=== ASDD CI/CD Pipeline Execution Completed ==='
+            echo 'Eventopia CI/CD pipeline finished.'
         }
     }
 }
