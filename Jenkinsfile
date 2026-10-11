@@ -1,4 +1,4 @@
-```groovy
+
 pipeline {
     agent any
 
@@ -129,4 +129,3 @@ if errorlevel 1 exit /b 1
         }
     }
 }
-```
