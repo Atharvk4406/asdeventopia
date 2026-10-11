@@ -88,24 +88,33 @@ IMAGE="ai-event-management-app"
 
 echo "Starting Eventopia deployment..."
 
-# Preserve the existing environment file.
+# Verify that the existing environment file is present.
+# Do not overwrite or modify this file.
 if [ ! -f "$ENV_FILE" ]; then
-    echo "ERROR: Environment file not found."
+    echo "ERROR: Environment file not found: $ENV_FILE"
     exit 1
 fi
 
+# Enter the existing application repository.
 cd "$APP_DIR"
+
+# Trust only this specific repository for the ubuntu user.
+echo "Configuring Git safe directory..."
+git config --global --add safe.directory "$APP_DIR"
 
 echo "Fetching latest application code..."
 git fetch origin main
+
+echo "Updating application to origin/main..."
 git reset --hard origin/main
 
 echo "Building Docker image on EC2..."
 docker build -t "$IMAGE:latest" .
 
-echo "Replacing the existing application container..."
+echo "Removing the old application container if present..."
 docker rm -f "$CONTAINER" 2>/dev/null || true
 
+echo "Starting the updated application..."
 docker run -d \
     --name "$CONTAINER" \
     --restart unless-stopped \
@@ -113,7 +122,7 @@ docker run -d \
     --env-file "$ENV_FILE" \
     "$IMAGE:latest"
 
-echo "Checking application health..."
+echo "Waiting for the health endpoint..."
 
 for attempt in $(seq 1 12); do
     if curl --fail --silent http://127.0.0.1:5000/health; then
@@ -142,11 +151,11 @@ set "SSH_RESULT=1"
 if not exist "%WORKSPACE%@tmp" mkdir "%WORKSPACE%@tmp"
 if errorlevel 1 goto cleanup
 
-echo Copying SSH key to a restricted temporary file...
+echo Copying SSH key to a temporary file...
 copy /Y "%EC2_SSH_KEY%" "%SSH_KEY_COPY%" >nul
 if errorlevel 1 goto cleanup
 
-echo Restricting SSH key permissions...
+echo Restricting private key permissions...
 icacls "%SSH_KEY_COPY%" /inheritance:r
 if errorlevel 1 goto cleanup
 
@@ -155,7 +164,7 @@ if errorlevel 1 goto cleanup
 
 icacls "%SSH_KEY_COPY%" /remove:g "BUILTIN\\Users" "Authenticated Users" "Everyone" >nul 2>&1
 
-echo Connecting to EC2 and deploying Eventopia...
+echo Connecting to EC2 and running deployment...
 
 ssh -i "%SSH_KEY_COPY%" ^
     -o BatchMode=yes ^
@@ -173,7 +182,7 @@ if exist "%SSH_KEY_COPY%" del /F "%SSH_KEY_COPY%" >nul 2>&1
 if "%SSH_RESULT%"=="0" (
     echo EC2 deployment completed successfully.
 ) else (
-    echo EC2 deployment failed. Check the console output.
+    echo EC2 deployment failed. Check the console output above.
 )
 
 exit /b %SSH_RESULT%
