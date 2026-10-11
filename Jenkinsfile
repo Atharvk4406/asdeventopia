@@ -12,7 +12,6 @@ pipeline {
         stage('1. Checkout SCM') {
             steps {
                 echo '=== Stage 1: Fetching Latest Code from GitHub ==='
-
                 checkout scm
             }
         }
@@ -32,11 +31,9 @@ pipeline {
                 echo '=== Stage 3: Running PyTest inside Docker ==='
 
                 echo '--- Building test image ---'
-
                 bat "docker build -t ${IMAGE_NAME}:test ."
 
                 echo '--- Running PyTest inside Linux Docker container ---'
-
                 bat "docker run --rm ${IMAGE_NAME}:test python -m pytest tests/ --doctest-modules -v"
             }
         }
@@ -51,14 +48,13 @@ pipeline {
 
         stage('5. Docker Container Deployment') {
             steps {
-                echo '=== Stage 5: Deploying Docker Container ==='
+                echo '=== Stage 5: Deploying to AWS EC2 using Ansible ==='
 
-                bat "docker stop ${CONTAINER_NAME} || exit 0"
-                bat "docker rm ${CONTAINER_NAME} || exit 0"
+                bat '''
+                wsl.exe -d Ubuntu -u atharv -- bash -lc "cd '/mnt/d/ASD MIni project' && ansible-playbook -i ansible/inventory ansible/deploy.yml"
+                '''
 
-                bat "docker run -d -p ${APP_PORT}:5000 --name ${CONTAINER_NAME} ${IMAGE_NAME}:latest"
-
-                echo "Application successfully deployed on port ${APP_PORT}"
+                echo 'Ansible deployment and health check completed.'
             }
         }
     }
@@ -69,7 +65,7 @@ pipeline {
         }
 
         success {
-            echo 'Pipeline Succeeded! Application is active & healthy.'
+            echo 'Pipeline Succeeded! Application deployed to AWS EC2.'
         }
 
         failure {
