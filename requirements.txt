@@ -346,3 +346,152 @@ output "public_ip" {
 output "instance_type" {
   value = aws_instance.demo.instance_type
 }
+
+1. Requirements
+- Docker Desktop
+- Docker Compose
+- Apache Airflow
+- Python
+- Windows PowerShell
+2. Verify Docker
+Start Docker Desktop and run:
+docker --version
+docker info
+docker compose version
+
+
+3. Create the project folder
+mkdir airflow-practical
+cd airflow-practical
+mkdir dags, logs, plugins, config
+
+
+Download the official Airflow Docker Compose file:
+
+Download the official Airflow Docker Compose file
+
+Save it as docker-compose.yaml inside the airflow-practical folder.
+4. Create the .env file
+Run this in PowerShell from the project folder:
+@"
+AIRFLOW_UID=50000
+FERNET_KEY=
+AIRFLOW_IMAGE_NAME=apache/airflow:3.1.0
+"@ | Set-Content .env
+
+
+5. Initialize and start Airflow
+Initialize the database and Airflow services:
+docker compose up airflow-init
+
+
+After initialization finishes successfully:
+docker compose up -d
+docker compose ps
+
+
+Port conflict: Jenkins was already using port 8080 in your setup. We changed the Airflow API server mapping to 8081:8080 in docker-compose.yaml.
+
+After changing the mapping, run:
+docker compose up -d airflow-apiserver
+
+
+Open the Airflow UI:
+http://localhost:8081
+
+
+In your earlier setup, the suggested login was:
+Username: airflow
+Password: airflow
+
+
+If those credentials do not work, check the configured Airflow user.
+6. Create the DAG Python file
+Inside the dags folder, create a file named:
+datetime_dag.py
+
+
+Its full path should be:
+airflow-practical/dags/datetime_dag.py
+
+import pendulum
+
+from airflow.sdk import dag, task
+
+
+@dag(
+    dag_id="wednesday_datetime_dag",
+    schedule="30 9 * * 3",
+    start_date=pendulum.datetime(
+        2026, 1, 1, tz="Asia/Kolkata"
+    ),
+    catchup=False,
+    tags=["practical", "datetime"],
+)
+def wednesday_datetime_dag():
+
+    @task
+    def display_datetime():
+        current_time = pendulum.now("Asia/Kolkata")
+
+        print(
+            "Current Date:",
+            current_time.strftime("%Y-%m-%d")
+        )
+        print(
+            "Current Time:",
+            current_time.strftime("%H:%M:%S")
+        )
+        print("Time Zone: Asia/Kolkata")
+
+    display_datetime()
+
+
+wednesday_datetime_dag()
+
+7. Check whether Airflow detects the DAG
+Run these commands from the folder containing docker-compose.yaml:
+docker compose logs --tail 80 airflow-dag-processor
+
+
+List the available DAGs:
+docker compose exec airflow-apiserver airflow dags list
+
+
+Check for import errors:
+docker compose exec airflow-apiserver airflow dags list-import-errors
+
+
+Find this DAG ID in the list:
+wednesday_datetime_dag
+
+
+8. Trigger the DAG manually
+1. Open http://localhost:8081.
+2. Find wednesday_datetime_dag.
+3. Enable it if it is paused.
+4. Trigger the DAG manually.
+5. Open the task instance.
+6. Click Logs.
+Look for output similar to:
+Current Date: 2026-10-29
+Current Time: 09:30:00
+Time Zone: Asia/Kolkata
+
+
+These are example values; the actual date and time will depend on when the task executes.
+9. Understand the cron expression
+The schedule is:
+30 9 * * 3
+
+10. Stop and restart Airflow
+When you finish practising, stop the services:
+docker compose stop
+
+
+To start the existing services again:
+docker compose start
+
+
+Avoid docker compose down -v unless you intentionally want to remove the stored Airflow data and volumes.
+Add this code:
