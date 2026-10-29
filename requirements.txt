@@ -1,13 +1,321 @@
-Flask
-mysql-connector-python
-pandas
-openpyxl
-scikit-learn
-gunicorn
-wikipedia
-google-generativeai
-python-dotenv
-twilio
-qrcode
-Pillow
-pytest
+[28/10, 16:30] Atharv Kudtarkar: ---
+- name: Configure localhost using Ansible
+  hosts: localhost
+  connection: local
+  become: yes
+
+  tasks:
+    - name: Display a message
+      debug:
+        msg: "Ansible is working successfully!"
+
+    - name: Install tree package
+      apt:
+        name: tree
+        state: present
+        update_cache: yes
+[28/10, 18:59] Atharv Kudtarkar: pipeline {
+    agent any
+
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                bat 'docker build -t jenkinsdemo:latest .'
+            }
+        }
+
+        stage('Deploy Using Docker') {
+            steps {
+                bat 'docker rm -f jenkinsdemo-container 2>NUL || exit /b 0'
+                bat 'docker run -d --name jenkinsdemo-container -p 8082:80 jenkinsdemo:latest'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'JenkinsDemo deployed successfully using Docker!'
+        }
+        failure {
+            echo 'Pipeline failed. Check Console Output.'
+        }
+    }
+}
+[28/10, 18:59] Atharv Kudtarkar: pipeline {
+    agent any
+
+    triggers {
+        pollSCM('H/5 * * * *')
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/YOUR-USERNAME/JenkinsDemo.git'
+            }
+        }
+
+        stage('Build') {
+            steps {
+                echo 'Building JenkinsDemo website...'
+            }
+        }
+
+        stage('Test') {
+            steps {
+                bat 'findstr /C:"My Jenkins CI Project" index.html'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo 'JenkinsDemo CI pipeline passed!'
+        }
+        failure {
+            echo 'Pipeline failed. Check Console Output.'
+        }
+    }
+}
+[28/10, 19:50] Atharv Kudtarkar: docker run -d --name ecommerce-container -p 5000:5000 ecommerce-app
+[28/10, 19:50] Atharv Kudtarkar: app.pyfrom flask import Flask, render_template
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+@app.route("/products")
+def products():
+    return render_template("products.html")
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000)
+[28/10, 21:13] Atharv Kudtarkar: FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir flask
+
+COPY app.py .
+COPY templates ./templates
+
+EXPOSE 5000
+
+CMD ["python", "app.py"]
+[28/10, 21:17] Atharv Kudtarkar: import json
+import boto3
+import uuid
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+dynamodb = boto3.resource("dynamodb")
+table = dynamodb.Table("DateTimeRecords")
+
+def lambda_handler(event, context):
+    now = datetime.now(ZoneInfo("Asia/Kolkata")).isoformat()
+
+    item = {
+        "record_id": str(uuid.uuid4()),
+        "date_time": now
+    }
+
+    table.put_item(Item=item)
+
+    return {
+        "statusCode": 200,
+        "body": json.dumps({
+            "message": "Date and time stored successfully",
+            "record_id": item["record_id"],
+            "date_time": item["date_time"]
+        })
+    }
+[29/10, 01:47] Atharv Kudtarkar: {
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:PutItem"
+      ],
+      "Resource": "arn:aws:dynamodb:YOUR-REGION:YOUR-ACCOUNT-ID:table/StudentRegistration"
+    }
+  ]
+}
+[29/10, 01:53] Atharv Kudtarkar: {
+  "name": "Atharv",
+  "email": "student@example.com",
+  "phone": "9876543210"
+}
+[29/10, 02:04] Atharv Kudtarkar: import json
+import boto3
+import uuid
+
+dynamodb = boto3.resource("dynamodb")
+table = dynamodb.Table("StudentRegistration")
+
+
+def lambda_handler(event, context):
+    try:
+        # Get registration data from the form
+        if "body" in event and event["body"]:
+            body = event["body"]
+
+            if isinstance(body, str):
+                data = json.loads(body)
+            else:
+                data = body
+        else:
+            data = event
+
+        # Create a unique registration ID
+        registration_id = str(uuid.uuid4())
+
+        # Store the data in DynamoDB
+        item = {
+            "registration_id": registration_id,
+            "name": data["name"],
+            "email": data["email"],
+            "phone": data["phone"]
+        }
+
+        table.put_item(Item=item)
+
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json"
+            },
+            "body": json.dumps({
+                "message": "Registration successful",
+                "registration_id": registration_id
+            })
+        }
+
+    except (KeyError, json.JSONDecodeError) as e:
+        return {
+            "statusCode": 400,
+            "body": json.dumps({
+                "message": "Missing or invalid registration data",
+                "error": str(e)
+            })
+        }
+
+    except Exception:
+        print("Error saving registration data")
+        raise
+[29/10, 02:12] Atharv Kudtarkar: <form id="registrationForm">
+    <input type="text" id="name"
+           placeholder="Enter name" required>
+
+    <input type="email" id="email"
+           placeholder="Enter email" required>
+
+    <input type="tel" id="phone"
+           placeholder="Enter phone" required>
+
+    <button type="submit">Register</button>
+</form>
+
+<p id="message"></p>
+
+<script>
+const API_URL = "PASTE_YOUR_INVOKE_URL/register";
+
+document.getElementById("registrationForm")
+    .addEventListener("submit", async function(event) {
+        event.preventDefault();
+
+        const data = {
+            name: document.getElementById("name").value,
+            email: document.getElementById("email").value,
+            phone: document.getElementById("phone").value
+        };
+
+        try {
+            const response = await fetch(API_URL, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(data)
+            });
+
+            const result = await response.json();
+
+            document.getElementById("message").textContent =
+                response.ok && result.statusCode !== 400
+                    ? "Registration successful!"
+                    : "Registration failed. Please try again.";
+
+        } catch (error) {
+            document.getElementById("message").textContent =
+                "Could not connect to the server.";
+            console.error(error);
+        }
+    });
+</script>
+[29/10, 02:38] Atharv Kudtarkar: terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "ap-south-1"
+}
+
+# Find the latest Ubuntu 22.04 AMI in Mumbai
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"]
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+  }
+
+  filter {
+    name   = "architecture"
+    values = ["x86_64"]
+  }
+
+  filter {
+    name   = "virtualization-type"
+    values = ["hvm"]
+  }
+}
+
+# Create an EC2 instance
+resource "aws_instance" "demo" {
+  ami           = data.aws_ami.ubuntu.id
+  instance_type = "t2.micro"
+
+  tags = {
+    Name = "Terraform-Practical-EC2"
+  }
+}
+
+# Display instance details
+output "instance_id" {
+  value = aws_instance.demo.id
+}
+
+output "public_ip" {
+  value = aws_instance.demo.public_ip
+}
+
+output "instance_type" {
+  value = aws_instance.demo.instance_type
+}
