@@ -1,4 +1,4 @@
-[28/10, 16:30] Atharv Kudtarkar: ---
+
 - name: Configure localhost using Ansible
   hosts: localhost
   connection: local
@@ -14,7 +14,9 @@
         name: tree
         state: present
         update_cache: yes
-[28/10, 18:59] Atharv Kudtarkar: pipeline {
+
+
+ pipeline {
     agent any
 
     stages {
@@ -47,7 +49,9 @@
         }
     }
 }
-[28/10, 18:59] Atharv Kudtarkar: pipeline {
+
+
+ {
     agent any
 
     triggers {
@@ -84,8 +88,7 @@
         }
     }
 }
-[28/10, 19:50] Atharv Kudtarkar: docker run -d --name ecommerce-container -p 5000:5000 ecommerce-app
-[28/10, 19:50] Atharv Kudtarkar: app.pyfrom flask import Flask, render_template
+
 
 app = Flask(__name__)
 
@@ -99,7 +102,8 @@ def products():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-[28/10, 21:13] Atharv Kudtarkar: FROM python:3.12-slim
+
+FROM python:3.12-slim
 
 WORKDIR /app
 
@@ -111,7 +115,9 @@ COPY templates ./templates
 EXPOSE 5000
 
 CMD ["python", "app.py"]
-[28/10, 21:17] Atharv Kudtarkar: import json
+
+
+ import json
 import boto3
 import uuid
 from datetime import datetime
@@ -138,7 +144,22 @@ def lambda_handler(event, context):
             "date_time": item["date_time"]
         })
     }
-[29/10, 01:47] Atharv Kudtarkar: {
+
+
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:PutItem"
+      ],
+      "Resource": "arn:aws:dynamodb:ap-south-1:696434672430:table/DateTimeTable"
+    }
+  ]
+}
+
+ {
   "Version": "2012-10-17",
   "Statement": [
     {
@@ -150,12 +171,16 @@ def lambda_handler(event, context):
     }
   ]
 }
-[29/10, 01:53] Atharv Kudtarkar: {
+
+ {
   "name": "Atharv",
   "email": "student@example.com",
   "phone": "9876543210"
 }
-[29/10, 02:04] Atharv Kudtarkar: import json
+
+
+
+ import json
 import boto3
 import uuid
 
@@ -212,7 +237,9 @@ def lambda_handler(event, context):
     except Exception:
         print("Error saving registration data")
         raise
-[29/10, 02:12] Atharv Kudtarkar: <form id="registrationForm">
+
+
+<form id="registrationForm">
     <input type="text" id="name"
            placeholder="Enter name" required>
 
